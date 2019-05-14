@@ -7,8 +7,11 @@ output: html_document
 
 knitr::opts_chunk$set(echo = TRUE)
 
-readr::read_csv("data/voteshare.csv")
-readr::read_csv("data/candidate.csv")
+library(tidyverse)
+
+
+voteshare <- readr::read_csv("data/voteshare.csv")
+candidate <- readr::read_csv("data/candidate.csv")
 
 ```
 
@@ -29,10 +32,162 @@ candidate = pandas.read_csv("data/candidate.csv")
 voteshare.to_sql('voteshare', conn, if_exists='replace', index=False)
 candidate.to_sql("candidate", conn, if_exists='replace', index=False)
 
-
-
 engine.execute("SELECT * FROM voteshare").fetchall()
 
+
+```
+
+Question 1: Produce the rows with the five highest win probability. 
+
+```{python}
+
+q1 = pandas.read_sql_query("SELECT * FROM voteshare ORDER BY win_probability DESC, voteshare DESC LIMIT 5", 
+                           conn)
+
+q1
+
+```
+
+check
+
+```{r}
+
+voteshare %>% 
+  arrange(desc(win_probability), desc(voteshare))
+
+```
+
+Question 2: How many unique forecast dates are included in this data set? What is the earliest forecast? Latest forecast?
+
+```{python}
+
+q2a = pandas.read_sql_query('''SELECT count(DISTINCT forecastdate) as unique_dates
+                               FROM voteshare''', conn)
+                  
+q2a
+
+```
+
+check
+
+```{r}
+
+nrow(distinct(voteshare, forecastdate))
+
+```
+
+```{python}
+
+q2b = pandas.read_sql_query('''SELECT *
+                  from (SELECT forecastdate 
+                      from voteshare 
+                      ORDER BY forecastdate
+                      LIMIT 1) as first_date
+                  
+                  UNION 
+                  
+                  SELECT *
+                  from (SELECT forecastdate 
+                        from voteshare 
+                        ORDER BY forecastdate DESC
+                        LIMIT 1) as last_date''', conn)
+                  
+q2b
+
+```
+
+check
+
+```{r}
+
+voteshare %>% 
+  arrange(forecastdate) %>% 
+  slice(1, nrow(.))
+
+```
+
+Question 3: What was the average win probability for the November 6th forecast? Just for Democrats? Just for Republicans?
+
+
+```{python}
+
+
+q3 = pandas.read_sql_query('''
+SELECT 'all' as forecast_type,
+      AVG(win_probability) as avg_win_prob
+FROM voteshare
+WHERE forecastdate = '2018-11-06'
+
+UNION 
+
+SELECT 'Republican' as forecast_type,
+      AVG(win_probability) as avg_win_prob
+FROM voteshare
+WHERE forecastdate = '2018-11-06'
+  AND party = 'R'
+
+UNION 
+
+SELECT 'Democrat' as forecast_type,
+      AVG(win_probability) as avg_win_prob
+FROM voteshare
+WHERE forecastdate = '2018-11-06'
+  AND party = 'D'
+''', conn
+)
+
+q3
+
+```
+
+check
+
+```{r}
+
+voteshare %>% 
+  filter(party %in% c("D", "R"),
+  forecastdate == '2018-11-06') %>% 
+  group_by(party) %>% 
+  summarise(mean(win_probability)) 
+
+voteshare %>% 
+    filter(forecastdate == '2018-11-06') %>% 
+    summarise(mean(win_probability)) 
+
+
+```
+
+Question 4: What is the average win probability for the November 6th forecast for incumbents vs non-incumbents? This will require a join to the candidates table.
+
+```{python}
+
+
+q4 = pandas.read_sql_query('''
+
+SELECT AVG(voteshare.win_probability)
+
+from voteshare
+inner join candidate on voteshare.state = candidate.state 
+  AND voteshare.party = candidate.party
+  AND voteshare.district = candidate.district
+
+WHERE candidate.incumbent = 't'
+AND voteshare.forecastdate = '2018-11-06'
+
+
+''', conn
+)
+
+q4
+
+```
+
+```{r}
+
+voteshare %>% 
+  inner_join(candidate, by = c('state', "district", "party")) %>% 
+  filter(incumbent) %>% 
+  summarise(mean(win_probability))
 
 ```
 
