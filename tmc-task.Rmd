@@ -1,0 +1,41 @@
+---
+title: "D&T Hiring Test"
+output: html_document
+---
+
+```{r setup}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+readr::read_csv("data/voteshare.csv")
+
+```
+
+## Task 1: SQL
+
+```{python}
+
+import sqlite3
+import pandas
+
+conn = sqlite3.connect(':memory')
+
+c = conn.cursor()
+
+voteshare = pandas.read_csv("data/voteshare.csv")
+
+c.execute('''CREATE TABLE voteshare 
+              (forecastdate text, state text, district integer, 
+              special text, party text, model text, win_probability real, 
+              voteshare real, p10_voteshare real, p90_voteshare real)''')
+                
+                
+voteshare.to_sql("voteshare", conn, if_exists='append', index=False)
+
+c.execute('SELECT * from voteshare')
+
+print c.fetchall()
+
+
+```
+
