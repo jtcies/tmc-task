@@ -8,6 +8,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 readr::read_csv("data/voteshare.csv")
+readr::read_csv("data/candidate.csv")
 
 ```
 
@@ -15,30 +16,22 @@ readr::read_csv("data/voteshare.csv")
 
 ```{python}
 
-import sqlite3
 import pandas
+from sqlalchemy import create_engine
 
-conn = sqlite3.connect(':memory:')
-
-c = conn.cursor()
+engine = create_engine('sqlite://', echo=False)
+conn = engine.raw_connection()
 
 voteshare = pandas.read_csv("data/voteshare.csv")
 
-c.execute('''CREATE TABLE voteshare 
-              (forecastdate text, state text, district integer, 
-              special text, party text, model text, win_probability real, 
-              voteshare real, p10_voteshare real, p90_voteshare real)''')
+candidate = pandas.read_csv("data/candidate.csv")
                 
-conn.commit()
+voteshare.to_sql('voteshare', conn, if_exists='replace', index=False)
+candidate.to_sql("candidate", conn, if_exists='replace', index=False)
 
-                
-voteshare.to_sql("voteshare", conn, if_exists='append', index=False)
 
-conn.commit()
 
-c.execute('SELECT * from voteshare')
-
-print c.fetchall()
+engine.execute("SELECT * FROM voteshare").fetchall()
 
 
 ```
