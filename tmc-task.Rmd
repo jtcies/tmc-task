@@ -34,7 +34,6 @@ candidate.to_sql("candidate", conn, if_exists='replace', index=False)
 
 engine.execute("SELECT * FROM voteshare").fetchall()
 
-
 ```
 
 Question 1: Produce the rows with the five highest win probability. 
@@ -190,4 +189,5 @@ voteshare %>%
   summarise(mean(win_probability))
 
 ```
+
 
