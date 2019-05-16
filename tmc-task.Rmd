@@ -191,3 +191,9 @@ voteshare %>%
 ```
 
 
+## Dashboard
+
+### Next steps
+
+- incorporate candidate data (merging did not work)
+- incoporate more information about the district (size, demographics)
