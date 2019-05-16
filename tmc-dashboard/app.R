@@ -1,41 +1,38 @@
 library(shiny)
 library(tidyverse)
 library(lubridate)
+library(scales)
 
-candidate <- read_csv(here::here("data/candidate.csv"))
 voteshare <- read_csv(here::here("data/voteshare.csv"))
 
 
 ## creates duplciates - check that this is ok
-voteshare_merged <- voteshare %>% 
-    left_join(candidate, by = c("district", "state", "party")) %>% 
+voteshare_tidy <- voteshare %>% 
     mutate_at(vars(contains("voteshare")), function(x) x / 100) %>%
     mutate(party = case_when(
                party == "D" ~ "Democrat",
                party == "R" ~ "Republican",
                TRUE ~ "Independent"
-           ))
+           )) %>% 
+    mutate(district = paste0(state, district)) %>% 
+    arrange(desc(win_probability)) %>% 
+    distinct(forecastdate, party, district, .keep_all = TRUE)
 
 # plot colors
 
-parties <- unique(voteshare_merged$party)[order(unique(voteshare_merged$party))]
+parties <- unique(voteshare_tidy$party)[order(unique(voteshare_tidy$party))]
 
 colors = c("blue", "green", "red")
 
 names(colors) <- parties
 
-candidate_choices <- c("all", unique(voteshare_merged$candidate))
+district_choices <- c("all", unique(voteshare_tidy$district))
 
 col_scale = scale_color_manual(values = colors)
 
 state_choices <- setNames(
-    c("all", unique(voteshare_merged$state)),
-    c("all", unique(voteshare_merged$state))
-)
-
-party_choices <- setNames(
-    c("all", unique(voteshare_merged$party)),
-    c("all", unique(voteshare_merged$party))
+    c("all", unique(voteshare_tidy$state)),
+    c("all", unique(voteshare_tidy$state))
 )
 
 ui <- fluidPage(
@@ -49,15 +46,10 @@ ui <- fluidPage(
                         state_choices,
                         selected = "all"
             ),
-            selectInput("party",
-                        "Party",
-                        party_choices,
-                        selected = "all"
-            ),
-            selectizeInput("candidate",
-                        "Candidate (use 'all' for all candidates)",
-                        choices = candidate_choices,
-                        selected = "all"
+            selectizeInput("district",
+                           "District",
+                           district_choices,
+                           selected = "all"
             ),
             dateRangeInput("daterange",
                            "Date Range",
@@ -66,17 +58,23 @@ ui <- fluidPage(
         ),
         
         mainPanel(
+            h3(textOutput("date_max")),
+            br(),
+            tableOutput("party_win"),
+            br(),
             plotOutput("voteshare_plot"),
-            tableOutput("current_win_prob")
+            br(),
+            tableOutput("closest_races")
         )
     )
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
     
+   
     filtered_data <- reactive({
         
-        data <- voteshare_merged
+        data <- voteshare_tidy
         
         if(input$state != "all") {
             
@@ -84,16 +82,10 @@ server <- function(input, output) {
                 filter(state == input$state)
         }
         
-         if(input$party != "all") {
+         if(input$district != "all") {
             
             data <- data %>% 
-                filter(party == input$party)
-        }
-        
-         if(input$candidate != "all") {
-            
-            data <- data %>% 
-                filter(candidate %in% input$candidate)
+                filter(district %in% input$district)
          } 
         
        data %>% 
@@ -104,9 +96,55 @@ server <- function(input, output) {
            group_by(party, forecastdate) %>% 
            summarise_at(vars(contains("voteshare"), win_probability), mean)
     })
-
-    output$voteshare_plot <- renderPlot({
+    
+    filtered_candidates <- reactive({
         
+        data <- voteshare_tidy
+        
+        
+        if(input$state != "all") {
+            
+            data <- data %>% 
+                filter(state == input$state)
+        }
+        
+        
+        if(input$district != "all") {
+            
+            data <- data %>% 
+                filter(district %in% input$district)
+        } 
+        
+        data %>% 
+            filter(
+                forecastdate >= input$daterange[[1]],
+                forecastdate <= input$daterange[[2]]
+            ) %>% 
+            filter(forecastdate == max(forecastdate)) %>% 
+            select(district, party, win_probability) %>% 
+            arrange(district)
+        
+    })
+    
+    output$party_win <- renderTable({
+        
+        filtered_candidates() %>% 
+            group_by(district) %>% 
+            mutate(
+                win = if_else(win_probability == max(win_probability), 1, 0)
+            ) %>% 
+            ungroup() %>%
+            complete(district, party, fill = list(win = 0)) %>%
+            group_by(party) %>% 
+            summarise(
+                percent_winning = mean(win),
+                total_winning = sum(win)
+            )
+        
+    })
+    
+    
+    output$voteshare_plot <- renderPlot({
         
         filtered_data() %>% 
             ggplot(aes(x = forecastdate, 
@@ -122,21 +160,41 @@ server <- function(input, output) {
                 col_scale + 
                 theme_minimal() +
                 labs(
+                    title = "Predicted voteshare by party",
                     x = "date of forecast",
-                    y = "predicted percent of votes"
+                    y = "average predicted voteshare"
                 )
         
     })
     
-    output$current_win_prob <- renderTable({
+    output$date_max <- renderText({
         
-        filtered_data() %>% 
+        d <- filtered_data() %>% 
             filter(forecastdate == max(forecastdate)) %>% 
-            select(party, win_probability) %>% 
-            mutate(win_probability = scales::percent(win_probability )) %>% 
-            spread(party, win_probability)
+            slice(1) %>% 
+            pull(forecastdate)
+        
+        d <- format(d, "%m/%d/%Y")
+        
+        paste0("Predictions as of ", d[[1]])
+    })
+    
+    output$closest_races <- renderTable({
+        
+        # need to correct this
+        # filtered_candidates() %>% 
+        #     voteshare_tidy %>% 
+        #     filter(forecastdate == date) %>% 
+        #     select(district, party, win_probability) %>% 
+        #     spread(party, win_probability) %>% 
+        #     mutate(dif = abs(Democrat - 0.5)) %>% 
+        #     arrange(desc(dif)) %>% 
+        #     top_n(5) %>% 
+        #     select(-dif)
+        
         
     })
+
 }
 
 # Run the application 
