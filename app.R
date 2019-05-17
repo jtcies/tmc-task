@@ -21,15 +21,18 @@ voteshare_tidy <- voteshare %>%
 
 # plot colors
 
-parties <- unique(voteshare_tidy$party)[order(unique(voteshare_tidy$party))]
+parties <- c("Democrat", "Independent", "Republican")
 
-colors = c("blue", "green", "red")
+color_options <- c(parties, "toss-up")
 
-names(colors) <- parties
+colors = c("blue", "green", "red", "purple")
+
+names(colors) <- color_options
+
+col_scale = scale_color_manual(values = colors)
 
 district_choices <- c("all", unique(voteshare_tidy$district))
 
-col_scale = scale_color_manual(values = colors)
 
 state_choices <- setNames(
     c("all", unique(voteshare_tidy$state)),
@@ -51,18 +54,19 @@ ui <- fluidPage(
             ),
             bsTooltip(
                 "turnout", 
-                paste0("slide to right for higher Democratic turnout,",
-                " left for higher Republican turnout")
+                paste0("Slide to right for higher Democratic turnout,",
+                " left for higher Republican turnout. Options on the extremes",
+                " are much less likely to occur.")
             ),
             selectInput(
                 "state",
-                "State",
+                "State (use 'all' to view all states)",
                 state_choices,
                 selected = "all"
             ),
             selectizeInput(
                 "district",
-                "District",
+                "District (use 'all' to view all districts)",
                 district_choices,
                 selected = "all"
             ),
@@ -88,8 +92,8 @@ ui <- fluidPage(
             h4("Predicted wins by party"),
             tableOutput("party_win"),
             br(),
-            h4("Average voteshare over time"),
-            plotOutput("voteshare_plot"),
+            h4("Predicted wins over time"),
+            plotOutput("seats_won_plot"),
             br(),
             h4("Closest Races"),
             tableOutput("closest_races")
@@ -139,7 +143,7 @@ server <- function(input, output, session) {
                 win = if_else(voteshare_update > 0.5, 1, 0),
                 tossup = if_else(max(voteshare_update) <= 0.5, 1L, 0L)
             ) %>% 
-            ungroup()
+            ungroup() 
              
          party <- dat %>% 
             group_by(party) %>% 
@@ -153,24 +157,33 @@ server <- function(input, output, session) {
          bind_cols(party, tossup)
     })
     
-    output$voteshare_plot <- renderPlot({
+    output$seats_won_plot <- renderPlot({
         
         filtered_candidates() %>%
-            filter(forecastdate <= input$daterange) %>% 
-            group_by(party, forecastdate) %>%
-            summarise(voteshare_update = mean(voteshare_update)) %>% 
+            filter(forecastdate <= input$daterange) %>%
+            select(forecastdate, district, voteshare_update, party) %>% 
+            complete(forecastdate, district, party = parties, fill = list(voteshare_update = 0)) %>% 
+            spread(party, voteshare_update) %>% 
+            mutate(
+                outcome = case_when(
+                    Democrat > 0.5 ~ "Democrat",
+                    Republican > 0.5 ~ "Republican",
+                    Independent > 0.5 ~ "Independent",
+                    TRUE ~ "toss-up"
+                )
+            ) %>% 
+            count(forecastdate, outcome) %>% 
             ggplot(aes(x = forecastdate, 
-                       y = voteshare_update,
-                       group = party,
-                       color = party)) +
+                       y = n,
+                       group = outcome,
+                       color = outcome)) +
                 geom_point() +
                 geom_line() +
-                scale_y_continuous(limits = c(0, 1), labels = scales::percent_format()) +
                 col_scale + 
                 theme_minimal() +
                 labs(
                     x = "date of forecast",
-                    y = "average predicted voteshare"
+                    y = "predicted wins"
                 )
         
     })
