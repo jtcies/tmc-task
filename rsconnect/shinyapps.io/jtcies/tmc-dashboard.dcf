@@ -1,0 +1,13 @@
+name: tmc-dashboard
+title: tmc-dashboard
+username:
+account: jtcies
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 934347
+bundleId: 2090745
+url: https://jtcies.shinyapps.io/tmc-dashboard/
+when: 1558060101.87464
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: README.md|tmc-task.Rmd

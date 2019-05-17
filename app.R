@@ -1,0 +1,210 @@
+library(shiny)
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(shinyBS)
+
+voteshare <- read_csv(here::here("data/voteshare.csv"))
+
+
+## creates duplciates - check that this is ok
+voteshare_tidy <- voteshare %>% 
+    mutate_at(vars(contains("voteshare")), function(x) x / 100) %>%
+    mutate(party = case_when(
+               party == "D" ~ "Democrat",
+               party == "R" ~ "Republican",
+               TRUE ~ "Independent"
+           )) %>% 
+    mutate(district = paste0(state, district)) %>% 
+    arrange(desc(win_probability)) %>% 
+    distinct(forecastdate, party, district, .keep_all = TRUE)
+
+# plot colors
+
+parties <- unique(voteshare_tidy$party)[order(unique(voteshare_tidy$party))]
+
+colors = c("blue", "green", "red")
+
+names(colors) <- parties
+
+district_choices <- c("all", unique(voteshare_tidy$district))
+
+col_scale = scale_color_manual(values = colors)
+
+state_choices <- setNames(
+    c("all", unique(voteshare_tidy$state)),
+    c("all", unique(voteshare_tidy$state))
+)
+
+ui <- fluidPage(
+
+    titlePanel("Election forecast"),
+
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput(
+                "turnout",
+                "Party Turnout",
+                min = 0.01,
+                max = 0.99,
+                value = 0.5
+            ),
+            bsTooltip(
+                "turnout", 
+                paste0("slide to right for higher Democratic turnout,",
+                " left for higher Republican turnout")
+            ),
+            selectInput(
+                "state",
+                "State",
+                state_choices,
+                selected = "all"
+            ),
+            selectizeInput(
+                "district",
+                "District",
+                district_choices,
+                selected = "all"
+            ),
+            dateInput(
+                "daterange",
+                "Prediction Date",
+                value = "2018-11-06",
+                min = "2018-08-01",
+                max = "2018-11-06"
+            ),
+            sliderInput(
+                "closecount",
+                "Number of close races to show",
+                min = 1,
+                max = 435, 
+                value = 5
+            )
+        ),
+        
+        mainPanel(
+            h3(textOutput("date_max")),
+            br(),
+            h4("Predicted wins by party"),
+            tableOutput("party_win"),
+            br(),
+            h4("Average voteshare over time"),
+            plotOutput("voteshare_plot"),
+            br(),
+            h4("Closest Races (by probability of winning)"),
+            tableOutput("closest_races")
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    
+    filtered_candidates <- reactive({
+        
+        data <- voteshare_tidy
+        
+        
+        if(input$state != "all") {
+            
+            data <- data %>% 
+                filter(state == input$state)
+        }
+        
+        
+        if(input$district != "all") {
+            
+            data <- data %>% 
+                filter(district %in% input$district)
+        } 
+        
+        data %>% 
+            arrange(district) %>% 
+            mutate(
+                sd = abs((p90_voteshare - voteshare) / 1.28),
+                voteshare_update = case_when(
+                    party == "Democrat" ~ qnorm(input$turnout, voteshare, sd),
+                    party == "Republican" ~ qnorm(1 - input$turnout, voteshare, sd),
+                    TRUE ~ voteshare
+                )
+            )
+        
+    })
+    
+    output$party_win <- renderTable({
+        
+        dat <- filtered_candidates() %>% 
+            filter(forecastdate == input$daterange) %>% 
+            group_by(district) %>% 
+            mutate(
+                win = if_else(voteshare_update > 0.5, 1, 0),
+                tossup = if_else(max(voteshare_update) <= 0.5, 1L, 0L)
+            ) %>% 
+            ungroup()
+             
+         party <- dat %>% 
+            group_by(party) %>% 
+            summarise(win = as.integer(sum(win))) %>% 
+            spread(party, win)
+         
+         tossup <- dat %>% 
+             distinct(district, tossup) %>% 
+             summarise(`toss-up` = sum(tossup))
+         
+         bind_cols(party, tossup)
+    })
+    
+    output$voteshare_plot <- renderPlot({
+        
+        filtered_candidates() %>%
+            filter(forecastdate <= input$daterange) %>% 
+            group_by(party, forecastdate) %>%
+            summarise(voteshare_update = mean(voteshare_update)) %>% 
+            ggplot(aes(x = forecastdate, 
+                       y = voteshare_update,
+                       group = party,
+                       color = party)) +
+                geom_point() +
+                geom_line() +
+                scale_y_continuous(limits = c(0, 1), labels = scales::percent_format()) +
+                col_scale + 
+                theme_minimal() +
+                labs(
+                    x = "date of forecast",
+                    y = "average predicted voteshare"
+                )
+        
+    })
+    
+    output$date_max <- renderText({
+        
+        d <- filtered_candidates() %>% 
+            filter(forecastdate == max(forecastdate)) %>% 
+            slice(1) %>% 
+            pull(forecastdate)
+        
+        d <- format(d, "%m/%d/%Y")
+        
+        paste0("Predictions as of ", d[[1]])
+    })
+    
+    output$closest_races <- renderTable({
+        
+        # need to correct this
+        filtered_candidates() %>%
+            filter(forecastdate == input$daterange) %>% 
+            select(district, party, win_probability) %>%
+            spread(party, win_probability) %>%
+            mutate(dif = abs(Democrat - Republican)) %>%
+            top_n(input$closecount, wt = -dif) %>%
+            select(-dif) %>% 
+            mutate_if(is.numeric, function(x)
+                if_else(is.na(x), NA_character_, percent(x, accuracy = .01))
+                )
+
+        
+    })
+
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
