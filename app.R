@@ -91,7 +91,7 @@ ui <- fluidPage(
             h4("Average voteshare over time"),
             plotOutput("voteshare_plot"),
             br(),
-            h4("Closest Races (by probability of winning)"),
+            h4("Closest Races"),
             tableOutput("closest_races")
         )
     )
@@ -192,15 +192,14 @@ server <- function(input, output, session) {
         # need to correct this
         filtered_candidates() %>%
             filter(forecastdate == input$daterange) %>% 
-            select(district, party, win_probability) %>%
-            spread(party, win_probability) %>%
+            select(district, party, voteshare_update) %>%
+            spread(party, voteshare_update) %>%
             mutate(dif = abs(Democrat - Republican)) %>%
             top_n(input$closecount, wt = -dif) %>%
             select(-dif) %>% 
             mutate_if(is.numeric, function(x)
                 if_else(is.na(x), NA_character_, percent(x, accuracy = .01))
                 )
-
         
     })
 

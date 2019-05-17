@@ -1,11 +1,13 @@
 ---
 title: "D&T Hiring Test"
-output: html_document
+output: 
+  html_document:
+    code_folding: hide
 ---
 
-```{r setup}
+```{r setup, include=FALSE}
 
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 library(tidyverse)
 
@@ -32,7 +34,6 @@ candidate = pandas.read_csv("data/candidate.csv")
 voteshare.to_sql('voteshare', conn, if_exists='replace', index=False)
 candidate.to_sql("candidate", conn, if_exists='replace', index=False)
 
-engine.execute("SELECT * FROM voteshare").fetchall()
 
 ```
 
@@ -47,14 +48,17 @@ q1
 
 ```
 
-check
+```
+SELECT * 
 
-```{r}
+FROM voteshare 
 
-voteshare %>% 
-  arrange(desc(win_probability), desc(voteshare))
+ORDER BY win_probability DESC, voteshare DESC 
+
+LIMIT 5
 
 ```
+
 
 Question 2: How many unique forecast dates are included in this data set? What is the earliest forecast? Latest forecast?
 
@@ -67,12 +71,12 @@ q2a
 
 ```
 
-check
+```
 
-```{r}
+SELECT count(DISTINCT forecastdate) as unique_dates
 
-nrow(distinct(voteshare, forecastdate))
-
+FROM voteshare
+                               
 ```
 
 ```{python}
@@ -95,13 +99,22 @@ q2b
 
 ```
 
-check
+```
+SELECT *
 
-```{r}
+FROM (SELECT forecastdate 
+      FROM voteshare 
+      ORDER BY forecastdate
+      LIMIT 1) as first_date
+                  
+UNION 
+                  
+SELECT *
 
-voteshare %>% 
-  arrange(forecastdate) %>% 
-  slice(1, nrow(.))
+FROM (SELECT forecastdate 
+      FROM voteshare 
+      ORDER BY forecastdate DESC
+      LIMIT 1) as last_date
 
 ```
 
@@ -139,20 +152,34 @@ q3
 
 ```
 
-check
 
-```{r}
+```
+SELECT 'all' as forecast_type,
+      AVG(win_probability) as avg_win_prob
 
-voteshare %>% 
-  filter(party %in% c("D", "R"),
-  forecastdate == '2018-11-06') %>% 
-  group_by(party) %>% 
-  summarise(mean(win_probability)) 
+FROM voteshare
 
-voteshare %>% 
-    filter(forecastdate == '2018-11-06') %>% 
-    summarise(mean(win_probability)) 
+WHERE forecastdate = '2018-11-06'
 
+UNION 
+
+SELECT 'Republican' as forecast_type,
+        AVG(win_probability) as avg_win_prob
+
+FROM voteshare
+
+WHERE forecastdate = '2018-11-06'
+  AND party = 'R'
+
+UNION 
+
+SELECT 'Democrat' as forecast_type,
+        AVG(win_probability) as avg_win_prob
+        
+FROM voteshare
+
+WHERE forecastdate = '2018-11-06'
+  AND party = 'D'
 
 ```
 
@@ -181,17 +208,36 @@ q4
 
 ```
 
-```{r}
+```
 
-voteshare %>% 
-  inner_join(candidate, by = c('state', "district", "party")) %>% 
-  filter(incumbent) %>% 
-  summarise(mean(win_probability))
+SELECT AVG(voteshare.win_probability)
+
+FROM voteshare
+INNER JOIN candidate on voteshare.state = candidate.state 
+  AND voteshare.party = candidate.party
+  AND voteshare.district = candidate.district
+
+WHERE candidate.incumbent = 't'
+AND voteshare.forecastdate = '2018-11-06'
 
 ```
 
+## Task 4: Dashboarding
 
-## Dashboard
+I created a Shiny application that can be accessed [here](https://jtcies.shinyapps.io/tmc-dashboard).
+
+When creating this dashoard, I began by thinking about the decisions that staff using it might be looking for information about. I built the dashboard around the following questions:
+
+- What has been the imapct of my investment in specific localities?
+- What is the level of uncertainty around current predictions?
+- What are the localities where a resource investment might have a substantial impact?
+
+The dashboard has three main charts. Each of the charts can be filtered by the inputs on the left-hand side. 
+- Party turnout: 
+- State:
+- District:
+- Date:
+- Number of close races to show: 
 
 ### Next steps
 
