@@ -228,11 +228,13 @@ AND voteshare.forecastdate = '2018-11-06'
 
 **Question 1: Volunteers were told that they would be speaking with pro-choice voters, or in other words, they would be speaking with voters that were modeled to be pro-choice. One volunteer remarked that she came across a number of voters who were not in favor of reproductive rights. Write a sample email that field organizers can use to help explain why this might happen when using model scores.**
 
-There's a quote in statistics that says "All models are wrong but some are useful." We can never perfectly predict someone's beliefs, and we probably shouldn't try to. 
+There's a quote in statistics that says "All models are wrong but some are useful." We can never perfectly predict someone's beliefs, and we probably shouldn't try to. This model is just a tool to help drive resources to the correct location.
 
 The type of model used to create these scores is called a classification model. The output of a classifcation model is really just a probability, in this case the likelihood that someone will be pro-choice. 
 
-When someone wants to make decisions for a model, like which houses to canvas, they have to set a reasonable cutoff for the probability that is used to classify someone into a particular group. If they set the cutoff too high, they will have very few people in the group who shouldn't be, but they'll miss a lot of people who should be in that group. If you set it too low, you'll get the opposite: lot's of people who should be in the group aren't, but they won't miss many people who should be. So whoever is setting the cutoff has to decide which is a better. In either case though, you'll still misclassify people some of the time. 
+When someone wants to make decisions for a model, like which houses to canvas, they have to set a reasonable cutoff for the score that is used to classify someone into a particular group. If they set the cutoff too high, they will have very few people in the group who shouldn't be, but they'll miss a lot of people who should be in that group. Set it too low, they'll get the opposite: lot's of people who should be in the group are not, but they won't miss many people who should be. So whoever is setting the cutoff has to decide which is a better. In either case though, the model will still misclassify people some of the time. 
+
+From my experience canvassing, I think there may be opportunity to engage in dialogue with these individuals. Conversation may offer opportunities for learning for both the volunteer and constituent. Additionally, they were rated as likely having pro-choice beliefs for a reason. Authentically listening to their concerns and addressing them honestly from the volunteer's perspective may help to push their thinking on the subject. 
 
 ## Task 4: Dashboarding
 
