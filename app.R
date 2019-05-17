@@ -40,6 +40,8 @@ state_choices <- setNames(
 )
 
 ui <- fluidPage(
+    
+    tags$style(".irs-line {background: red} .irs-bar {background: blue}"),
 
     titlePanel("Election forecast"),
 
@@ -50,7 +52,8 @@ ui <- fluidPage(
                 "Party Turnout",
                 min = 0.01,
                 max = 0.99,
-                value = 0.5
+                value = 0.5,
+                ticks = FALSE
             ),
             bsTooltip(
                 "turnout", 
@@ -77,7 +80,7 @@ ui <- fluidPage(
                 min = "2018-08-01",
                 max = "2018-11-06"
             ),
-            sliderInput(
+            numericInput(
                 "closecount",
                 "Number of close races to show",
                 min = 1,
