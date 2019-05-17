@@ -4,6 +4,8 @@ library(lubridate)
 library(scales)
 library(shinyBS)
 
+# set up --------------------
+
 voteshare <- read_csv(here::here("data/voteshare.csv"))
 
 
@@ -23,21 +25,29 @@ voteshare_tidy <- voteshare %>%
 
 parties <- c("Democrat", "Independent", "Republican")
 
+outcomes <- c("Democrat", "Republican", "toss-up")
+
 color_options <- c(parties, "toss-up")
 
-colors = c("blue", "green", "red", "purple")
+colors <- c("blue", "green", "red", "purple")
 
 names(colors) <- color_options
 
-col_scale = scale_color_manual(values = colors)
+col_scale <- scale_color_manual(values = colors)
 
-district_choices <- c("all", unique(voteshare_tidy$district))
+fill_scale <- scale_fill_manual(values = colors)
 
+district_choices <-  unique(voteshare_tidy$district)
+district_choices <- c("all", district_choices[order(district_choices)])
 
 state_choices <- setNames(
-    c("all", unique(voteshare_tidy$state)),
-    c("all", unique(voteshare_tidy$state))
+    unique(voteshare_tidy$state),
+    unique(voteshare_tidy$state)
 )
+
+state_choices <- c("all", state_choices[order(state_choices)])
+
+# app ---------------------------
 
 ui <- fluidPage(
     
@@ -50,9 +60,10 @@ ui <- fluidPage(
             sliderInput(
                 "turnout",
                 "Party Turnout",
-                min = 0.01,
-                max = 0.99,
-                value = 0.5,
+                min = -.99,
+                max = .99,
+                value = 0,
+                step = 0.01,
                 ticks = FALSE
             ),
             bsTooltip(
@@ -110,27 +121,27 @@ server <- function(input, output, session) {
         
         data <- voteshare_tidy
         
-        
         if(input$state != "all") {
             
             data <- data %>% 
                 filter(state == input$state)
         }
-        
-        
+
         if(input$district != "all") {
             
             data <- data %>% 
                 filter(district %in% input$district)
         } 
         
+        p <- (input$turnout + 1) / 2
+        
         data %>% 
             arrange(district) %>% 
             mutate(
                 sd = abs((p90_voteshare - voteshare) / 1.28),
                 voteshare_update = case_when(
-                    party == "Democrat" ~ qnorm(input$turnout, voteshare, sd),
-                    party == "Republican" ~ qnorm(1 - input$turnout, voteshare, sd),
+                    party == "Democrat" ~ qnorm(p, voteshare, sd),
+                    party == "Republican" ~ qnorm(1 - p, voteshare, sd),
                     TRUE ~ voteshare
                 )
             )
@@ -162,8 +173,11 @@ server <- function(input, output, session) {
     
     output$seats_won_plot <- renderPlot({
         
-        filtered_candidates() %>%
+        plot <- filtered_candidates() %>%
             filter(forecastdate <= input$daterange) %>%
+            
+            # voteshare_tidy %>% mutate(voteshare_update = voteshare) %>%
+            # filter(state == "GA") %>%
             select(forecastdate, district, voteshare_update, party) %>% 
             complete(forecastdate, district, party = parties, fill = list(voteshare_update = 0)) %>% 
             spread(party, voteshare_update) %>% 
@@ -176,19 +190,39 @@ server <- function(input, output, session) {
                 )
             ) %>% 
             count(forecastdate, outcome) %>% 
-            ggplot(aes(x = forecastdate, 
-                       y = n,
-                       group = outcome,
-                       color = outcome)) +
-                geom_point() +
-                geom_line() +
-                col_scale + 
+            complete(forecastdate, outcome = outcomes, fill = list(n = 0)) %>% 
+            mutate(outcome = fct_relevel(outcome, "Democrat", "toss-up")) %>% 
+            ggplot() +
+                scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1))))) +
+                expand_limits(y = 0) +
                 theme_minimal() +
                 labs(
                     x = "date of forecast",
                     y = "predicted wins"
                 )
         
+        if (input$state != "all" || input$district != "all") {
+            
+            plot + 
+                geom_area(aes(x = forecastdate, 
+                              y = n,
+                              fill = outcome)) +
+                fill_scale
+            
+        } else {
+            
+            plot + 
+                geom_line(aes(x = forecastdate, 
+                              y = n,
+                              color = outcome,
+                              group = outcome)) +
+                geom_point(aes(x = forecastdate, 
+                               y = n,
+                               color = outcome,
+                               group = outcome)) +
+                col_scale
+        }
+
     })
     
     output$date_max <- renderText({

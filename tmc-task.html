@@ -207,7 +207,7 @@ window.initializeCodeFolding = function(show) {
   var currentIndex = 1;
 
   // select all R code blocks
-  var rCodeBlocks = $('pre.r, pre.python, pre.bash, pre.sql, pre.cpp, pre.stan, pre.julia');
+  var rCodeBlocks = $('pre.r, pre.python, pre.bash, pre.sql, pre.cpp, pre.stan');
   rCodeBlocks.each(function() {
 
     // create a collapsable div to wrap the code in
@@ -314,7 +314,9 @@ h6 {
 </style>
 
 
+</head>
 
+<body>
 
 <style type="text/css">
 .main-container {
@@ -345,6 +347,8 @@ summary {
 </style>
 
 
+
+<div class="container-fluid main-container">
 
 <!-- tabsets -->
 
@@ -427,15 +431,6 @@ $(document).ready(function () {
 
 
 
-</head>
-
-<body>
-
-
-<div class="container-fluid main-container">
-
-
-
 
 <div class="fluid-row" id="header">
 
@@ -456,42 +451,44 @@ $(document).ready(function () {
 
 <div id="task-1-sql" class="section level2">
 <h2>Task 1: SQL</h2>
-<pre class="python"><code>import pandas
+<pre class="python"><code>## I used the sqlite python api to test each query
+
+import pandas
 from sqlalchemy import create_engine
 
-engine = create_engine('sqlite://', echo=False)
+engine = create_engine(&#39;sqlite://&#39;, echo=False)
 conn = engine.raw_connection()
 
 voteshare = pandas.read_csv(&quot;data/voteshare.csv&quot;)
 
 candidate = pandas.read_csv(&quot;data/candidate.csv&quot;)
                 
-voteshare.to_sql('voteshare', conn, if_exists='replace', index=False)
-candidate.to_sql(&quot;candidate&quot;, conn, if_exists='replace', index=False)</code></pre>
-<p>Question 1: Produce the rows with the five highest win probability.</p>
+voteshare.to_sql(&#39;voteshare&#39;, conn, if_exists=&#39;replace&#39;, index=False)
+candidate.to_sql(&quot;candidate&quot;, conn, if_exists=&#39;replace&#39;, index=False)</code></pre>
+<p><strong>Question 1: Produce the rows with the five highest win probability.</strong></p>
 <pre class="python"><code>q1 = pandas.read_sql_query(&quot;SELECT * FROM voteshare ORDER BY win_probability DESC, voteshare DESC LIMIT 5&quot;, 
                            conn)
 
 q1</code></pre>
 <pre><code>SELECT * 
 
-FROM voteshare 
+FROM tmc.voteshare 
 
 ORDER BY win_probability DESC, voteshare DESC 
 
 LIMIT 5
 </code></pre>
-<p>Question 2: How many unique forecast dates are included in this data set? What is the earliest forecast? Latest forecast?</p>
-<pre class="python"><code>q2a = pandas.read_sql_query('''SELECT count(DISTINCT forecastdate) as unique_dates
-                               FROM voteshare''', conn)
+<p><strong>Question 2: How many unique forecast dates are included in this data set? What is the earliest forecast? Latest forecast?</strong></p>
+<pre class="python"><code>q2a = pandas.read_sql_query(&#39;&#39;&#39;SELECT count(DISTINCT forecastdate) as unique_dates
+                               FROM voteshare&#39;&#39;&#39;, conn)
                   
 q2a</code></pre>
 <pre><code>
 SELECT count(DISTINCT forecastdate) as unique_dates
 
-FROM voteshare
+FROM tmc.voteshare
                                </code></pre>
-<pre class="python"><code>q2b = pandas.read_sql_query('''SELECT *
+<pre class="python"><code>q2b = pandas.read_sql_query(&#39;&#39;&#39;SELECT *
                   from (SELECT forecastdate 
                       from voteshare 
                       ORDER BY forecastdate
@@ -503,13 +500,13 @@ FROM voteshare
                   from (SELECT forecastdate 
                         from voteshare 
                         ORDER BY forecastdate DESC
-                        LIMIT 1) as last_date''', conn)
+                        LIMIT 1) as last_date&#39;&#39;&#39;, conn)
                   
 q2b</code></pre>
 <pre><code>SELECT *
 
 FROM (SELECT forecastdate 
-      FROM voteshare 
+      FROM tmc.voteshare 
       ORDER BY forecastdate
       LIMIT 1) as first_date
                   
@@ -518,65 +515,65 @@ UNION
 SELECT *
 
 FROM (SELECT forecastdate 
-      FROM voteshare 
+      FROM tmc.voteshare 
       ORDER BY forecastdate DESC
       LIMIT 1) as last_date
 </code></pre>
-<p>Question 3: What was the average win probability for the November 6th forecast? Just for Democrats? Just for Republicans?</p>
-<pre class="python"><code>q3 = pandas.read_sql_query('''
-SELECT 'all' as forecast_type,
+<p><strong>Question 3: What was the average win probability for the November 6th forecast? Just for Democrats? Just for Republicans?</strong></p>
+<pre class="python"><code>q3 = pandas.read_sql_query(&#39;&#39;&#39;
+SELECT &#39;all&#39; as forecast_type,
       AVG(win_probability) as avg_win_prob
 FROM voteshare
-WHERE forecastdate = '2018-11-06'
+WHERE forecastdate = &#39;2018-11-06&#39;
 
 UNION 
 
-SELECT 'Republican' as forecast_type,
+SELECT &#39;Republican&#39; as forecast_type,
       AVG(win_probability) as avg_win_prob
 FROM voteshare
-WHERE forecastdate = '2018-11-06'
-  AND party = 'R'
+WHERE forecastdate = &#39;2018-11-06&#39;
+  AND party = &#39;R&#39;
 
 UNION 
 
-SELECT 'Democrat' as forecast_type,
+SELECT &#39;Democrat&#39; as forecast_type,
       AVG(win_probability) as avg_win_prob
 FROM voteshare
-WHERE forecastdate = '2018-11-06'
-  AND party = 'D'
-''', conn
+WHERE forecastdate = &#39;2018-11-06&#39;
+  AND party = &#39;D&#39;
+&#39;&#39;&#39;, conn
 )
 
 q3</code></pre>
-<pre><code>SELECT 'all' as forecast_type,
+<pre><code>SELECT &#39;all&#39; as forecast_type,
       AVG(win_probability) as avg_win_prob
 
-FROM voteshare
+FROM tmc.voteshare
 
-WHERE forecastdate = '2018-11-06'
+WHERE forecastdate = &#39;2018-11-06&#39;
 
 UNION 
 
-SELECT 'Republican' as forecast_type,
+SELECT &#39;Republican&#39; as forecast_type,
         AVG(win_probability) as avg_win_prob
 
-FROM voteshare
+FROM tmc.voteshare
 
-WHERE forecastdate = '2018-11-06'
-  AND party = 'R'
+WHERE forecastdate = &#39;2018-11-06&#39;
+  AND party = &#39;R&#39;
 
 UNION 
 
-SELECT 'Democrat' as forecast_type,
+SELECT &#39;Democrat&#39; as forecast_type,
         AVG(win_probability) as avg_win_prob
         
-FROM voteshare
+FROM tmc.voteshare
 
-WHERE forecastdate = '2018-11-06'
-  AND party = 'D'
+WHERE forecastdate = &#39;2018-11-06&#39;
+  AND party = &#39;D&#39;
 </code></pre>
-<p>Question 4: What is the average win probability for the November 6th forecast for incumbents vs non-incumbents? This will require a join to the candidates table.</p>
-<pre class="python"><code>q4 = pandas.read_sql_query('''
+<p><strong>Question 4: What is the average win probability for the November 6th forecast for incumbents vs non-incumbents? This will require a join to the candidates table.</strong></p>
+<pre class="python"><code>q4 = pandas.read_sql_query(&#39;&#39;&#39;
 
 SELECT AVG(voteshare.win_probability)
 
@@ -585,36 +582,82 @@ inner join candidate on voteshare.state = candidate.state
   AND voteshare.party = candidate.party
   AND voteshare.district = candidate.district
 
-WHERE candidate.incumbent = 't'
-AND voteshare.forecastdate = '2018-11-06'
+WHERE candidate.incumbent = &#39;t&#39;
+AND voteshare.forecastdate = &#39;2018-11-06&#39;
 
 
-''', conn
+&#39;&#39;&#39;, conn
 )
 
 q4</code></pre>
 <pre><code>
 SELECT AVG(voteshare.win_probability)
 
-FROM voteshare
-INNER JOIN candidate on voteshare.state = candidate.state 
+FROM tmc.voteshare as voteshare
+INNER JOIN tmc.candidate as candidate 
+  ON voteshare.state = candidate.state 
   AND voteshare.party = candidate.party
   AND voteshare.district = candidate.district
 
-WHERE candidate.incumbent = 't'
-AND voteshare.forecastdate = '2018-11-06'
+WHERE candidate.incumbent = &#39;t&#39;
+AND voteshare.forecastdate = &#39;2018-11-06&#39;
 </code></pre>
 </div>
-<div id="dashboard" class="section level2">
-<h2>Dashboard</h2>
-<p>I created a shiny application that can be accessed <a href="https://jtcies.shinyapps.io/tmc-dashboard">here</a>.</p>
+<div id="task-2-explanatory-email" class="section level2">
+<h2>Task 2: Explanatory Email</h2>
+<p><strong>Question 1: Volunteers were told that they would be speaking with pro-choice voters, or in other words, they would be speaking with voters that were modeled to be pro-choice. One volunteer remarked that she came across a number of voters who were not in favor of reproductive rights. Write a sample email that field organizers can use to help explain why this might happen when using model scores.</strong></p>
+<p>There’s a quote in statistics that says “All models are wrong but some are useful.” We can never perfectly predict someone’s beliefs, and we probably shouldn’t try to.</p>
+<p>The type of model used to create these scores is called a classification model. The output of a classifcation model is really just a probability, in this case the likelihood that someone will be pro-choice.</p>
+<p>When someone wants to make decisions for a model, like which houses to canvas, they have to set a reasonable cutoff for the probability that is used to classify someone into a particular group. If they set the cutoff too high, they will have very few people in the group who shouldn’t be, but they’ll miss a lot of people who should be in that group. If you set it too low, you’ll get the opposite: lot’s of people who should be in the group aren’t, but they won’t miss many people who should be. So whoever is setting the cutoff has to decide which is a better. In either case though, you’ll still misclassify people some of the time.</p>
+</div>
+<div id="task-4-dashboarding" class="section level2">
+<h2>Task 4: Dashboarding</h2>
+<p>I created a Shiny application that can be accessed <a href="https://jtcies.shinyapps.io/tmc-dashboard">here</a>.</p>
+<p>When creating this dashoard, I tried to think about what might be useful to member organizations, what problems they might be trying to solve, or what questions they might have. I built the dashboard around the following questions:</p>
+<ul>
+<li>How close is each party to winning a majority in the house? How certain are we of that one party will take control?</li>
+<li>What are the districts that are in play? Where might a resource investment have a substantial impact?</li>
+<li>What impact has resource investment had on electoral outcomes?</li>
+</ul>
+<p>The dashboard has three main visualizations Each of the charts can be filtered by the inputs on the left-hand side.</p>
+<div id="inputs" class="section level3">
+<h3>Inputs</h3>
+<ul>
+<li>Party Turnout<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>: This slider changes the voteshare used to predict outcomes.</li>
+<li>State: Each of the charts can be filtered to look at predictions for each state.</li>
+<li>District: Each of the charts can be filtered to look at predictions for a specific district.</li>
+<li>Date: Filter the charts to show predictions on a specific day.</li>
+<li>Number of close races to show: Used to chanage the number of districts shows on the final chart (close races).</li>
+</ul>
+</div>
+<div id="visualizations" class="section level3">
+<h3>Visualizations</h3>
+<div id="total-seats-won" class="section level4">
+<h4>Total seats won</h4>
+<p>This shows the number of seats each party is predicted to win, as well as ‘toss-up’ races (those in which none of the candidates is predicted to receive greater than 50% of the vote).</p>
+</div>
+<div id="predicted-wins-over-time" class="section level4">
+<h4>Predicted wins over time</h4>
+<p>This shows the change over time in the number of seats each party is predicted to win, as well as ‘toss-ups’. Note that is a state or district is chosen, this changes from a line chart to an area chart.</p>
+</div>
+<div id="closest-races" class="section level4">
+<h4>Closest races</h4>
+<p>This shows the cloests races as defined by the difference between the predicted Republican and Democratic voteshare. The number of races shown can be changed by the ‘Number of close races to show’ input.</p>
+</div>
+</div>
 <div id="next-steps" class="section level3">
 <h3>Next steps</h3>
 <ul>
-<li>incorporate candidate data (merging did not work)</li>
-<li>incoporate more information about the district (size, demographics)</li>
+<li><p>While the slider shows the range of possible outcomes, it may not clearly communicate the probability of each of those outcomes. I’d like to find a way to more clearly demonstrate the probability of a 99th percentile outcome compared to a 50th percentile outcome.</p></li>
+<li><p>Because the candidate data has more than one candidate per party in some districts, merging in the candidate data skewed the results. I would like to add candidate information to the plot, such as incumbency, but need to spend more time cleaning the candidate data.</p></li>
 </ul>
 </div>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>To adjust party turnout, I created a continuous distribution of outcomes for each district. To do this, I calucated the standard deviation for each district by subtracting the mean and 90th percentile voteshare and dividing by 1.28 (the z-score at the 90th percentile). The slider changes the probability input to the quantile function of the normal distribution, using the mean and standard deivation for each district. The Democrat and Republican quantiles are inversely proportional: moving the slider to the right increase the probability for Democrats and decreases it for Republicans. Voteshares for independent candidates do not update based on this slider.<a href="#fnref1" class="footnote-back">↩</a></p></li>
+</ol>
 </div>
 
 

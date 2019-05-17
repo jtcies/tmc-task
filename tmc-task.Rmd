@@ -21,6 +21,8 @@ candidate <- readr::read_csv("data/candidate.csv")
 
 ```{python}
 
+## I used the sqlite python api to test each query
+
 import pandas
 from sqlalchemy import create_engine
 
@@ -51,7 +53,7 @@ q1
 ```
 SELECT * 
 
-FROM voteshare 
+FROM tmc.voteshare 
 
 ORDER BY win_probability DESC, voteshare DESC 
 
@@ -74,7 +76,7 @@ q2a
 
 SELECT count(DISTINCT forecastdate) as unique_dates
 
-FROM voteshare
+FROM tmc.voteshare
                                
 ```
 
@@ -102,7 +104,7 @@ q2b
 SELECT *
 
 FROM (SELECT forecastdate 
-      FROM voteshare 
+      FROM tmc.voteshare 
       ORDER BY forecastdate
       LIMIT 1) as first_date
                   
@@ -111,7 +113,7 @@ UNION
 SELECT *
 
 FROM (SELECT forecastdate 
-      FROM voteshare 
+      FROM tmc.voteshare 
       ORDER BY forecastdate DESC
       LIMIT 1) as last_date
 
@@ -156,7 +158,7 @@ q3
 SELECT 'all' as forecast_type,
       AVG(win_probability) as avg_win_prob
 
-FROM voteshare
+FROM tmc.voteshare
 
 WHERE forecastdate = '2018-11-06'
 
@@ -165,7 +167,7 @@ UNION
 SELECT 'Republican' as forecast_type,
         AVG(win_probability) as avg_win_prob
 
-FROM voteshare
+FROM tmc.voteshare
 
 WHERE forecastdate = '2018-11-06'
   AND party = 'R'
@@ -175,7 +177,7 @@ UNION
 SELECT 'Democrat' as forecast_type,
         AVG(win_probability) as avg_win_prob
         
-FROM voteshare
+FROM tmc.voteshare
 
 WHERE forecastdate = '2018-11-06'
   AND party = 'D'
@@ -211,8 +213,9 @@ q4
 
 SELECT AVG(voteshare.win_probability)
 
-FROM voteshare
-INNER JOIN candidate on voteshare.state = candidate.state 
+FROM tmc.voteshare as voteshare
+INNER JOIN tmc.candidate as candidate 
+  ON voteshare.state = candidate.state 
   AND voteshare.party = candidate.party
   AND voteshare.district = candidate.district
 
@@ -225,30 +228,50 @@ AND voteshare.forecastdate = '2018-11-06'
 
 **Question 1: Volunteers were told that they would be speaking with pro-choice voters, or in other words, they would be speaking with voters that were modeled to be pro-choice. One volunteer remarked that she came across a number of voters who were not in favor of reproductive rights. Write a sample email that field organizers can use to help explain why this might happen when using model scores.**
 
-There's a quote in statistics that says "All models are wrong but some are useful." We can never perfectly predict someones beliefs, and we shouldn't try to. 
+There's a quote in statistics that says "All models are wrong but some are useful." We can never perfectly predict someone's beliefs, and we probably shouldn't try to. 
 
-The type of model used to create these scores is called a classification model. The output of a classifcation model is really just a probability, in this case the probability that someone will be pro-choice. 
+The type of model used to create these scores is called a classification model. The output of a classifcation model is really just a probability, in this case the likelihood that someone will be pro-choice. 
 
-Whenever making decisions from a model, you have to set a reasonable cutoff. The cutoff 
+When someone wants to make decisions for a model, like which houses to canvas, they have to set a reasonable cutoff for the probability that is used to classify someone into a particular group. If they set the cutoff too high, they will have very few people in the group who shouldn't be, but they'll miss a lot of people who should be in that group. If you set it too low, you'll get the opposite: lot's of people who should be in the group aren't, but they won't miss many people who should be. So whoever is setting the cutoff has to decide which is a better. In either case though, you'll still misclassify people some of the time. 
 
 ## Task 4: Dashboarding
 
 I created a Shiny application that can be accessed [here](https://jtcies.shinyapps.io/tmc-dashboard).
 
-When creating this dashoard, I began by thinking about the decisions that staff using it might be looking for information about. I built the dashboard around the following questions:
+When creating this dashoard, I tried to think about what might be useful to member organizations, what problems they might be trying to solve, or what questions they might have. I built the dashboard around the following questions:
 
-- What has been the imapct of my investment in specific localities?
-- What is the level of uncertainty around current predictions?
-- What are the localities where a resource investment might have a substantial impact?
+- How close is each party to winning a majority in the house? How certain are we of that one party will take control?
+- What are the districts that are in play? Where might a resource investment have a substantial impact? 
+- What impact has resource investment had on electoral outcomes? 
 
-The dashboard has three main charts. Each of the charts can be filtered by the inputs on the left-hand side. 
-- Party turnout: 
-- State:
-- District:
-- Date:
-- Number of close races to show: 
+The dashboard has three main visualizations Each of the charts can be filtered by the inputs on the left-hand side. 
+
+### Inputs
+
+- Party Turnout[^1]: This slider changes the voteshare used to predict outcomes. 
+- State: Each of the charts can be filtered to look at predictions for each state. 
+- District: Each of the charts can be filtered to look at predictions for a specific district. 
+- Date: Filter the charts to show predictions on a specific day. 
+- Number of close races to show: Used to chanage the number of districts shows on the final chart (close races). 
+
+### Visualizations
+
+#### Total seats won
+
+This shows the number of seats each party is predicted to win, as well as 'toss-up' races (those in which none of the candidates is predicted to receive greater than 50% of the vote).
+
+#### Predicted wins over time
+
+This shows the change over time in the number of seats each party is predicted to win, as well as 'toss-ups'. Note that is a state or district is chosen, this changes from a line chart to an area chart. 
+
+#### Closest races
+
+This shows the cloests races as defined by the difference between the predicted Republican and Democratic voteshare. The number of races shown can be changed by the 'Number of close races to show' input. 
 
 ### Next steps
 
-- incorporate candidate data (merging did not work)
-- incoporate more information about the district (size, demographics)
+- While the slider shows the range of possible outcomes, it may not clearly communicate the probability of each of those outcomes. I'd like to find a way to more clearly demonstrate the probability of a 99th percentile outcome compared to a 50th percentile outcome. 
+
+- Because the candidate data has more than one candidate per party in some districts, merging in the candidate data skewed the results. I would like to add candidate information to the plot, such as incumbency, but need to spend more time cleaning the candidate data. 
+
+[^1]: To adjust party turnout, I created a continuous distribution of outcomes for each district. To do this, I calucated the standard deviation for each district by subtracting the mean and 90th percentile voteshare and dividing by 1.28 (the z-score at the 90th percentile). The slider changes the probability input to the quantile function of the normal distribution, using the mean and standard deivation for each district. The Democrat and Republican quantiles are inversely proportional: moving the slider to the right increase the probability for Democrats and decreases it for Republicans. Voteshares for independent candidates do not update based on this slider.
