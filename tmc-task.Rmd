@@ -37,7 +37,7 @@ candidate.to_sql("candidate", conn, if_exists='replace', index=False)
 
 ```
 
-Question 1: Produce the rows with the five highest win probability. 
+**Question 1: Produce the rows with the five highest win probability.**
 
 ```{python}
 
@@ -59,8 +59,7 @@ LIMIT 5
 
 ```
 
-
-Question 2: How many unique forecast dates are included in this data set? What is the earliest forecast? Latest forecast?
+**Question 2: How many unique forecast dates are included in this data set? What is the earliest forecast? Latest forecast?**
 
 ```{python}
 
@@ -118,7 +117,7 @@ FROM (SELECT forecastdate
 
 ```
 
-Question 3: What was the average win probability for the November 6th forecast? Just for Democrats? Just for Republicans?
+**Question 3: What was the average win probability for the November 6th forecast? Just for Democrats? Just for Republicans?**
 
 
 ```{python}
@@ -183,7 +182,7 @@ WHERE forecastdate = '2018-11-06'
 
 ```
 
-Question 4: What is the average win probability for the November 6th forecast for incumbents vs non-incumbents? This will require a join to the candidates table.
+**Question 4: What is the average win probability for the November 6th forecast for incumbents vs non-incumbents? This will require a join to the candidates table.**
 
 ```{python}
 
@@ -221,6 +220,16 @@ WHERE candidate.incumbent = 't'
 AND voteshare.forecastdate = '2018-11-06'
 
 ```
+
+## Task 2: Explanatory Email
+
+**Question 1: Volunteers were told that they would be speaking with pro-choice voters, or in other words, they would be speaking with voters that were modeled to be pro-choice. One volunteer remarked that she came across a number of voters who were not in favor of reproductive rights. Write a sample email that field organizers can use to help explain why this might happen when using model scores.**
+
+There's a quote in statistics that says "All models are wrong but some are useful." We can never perfectly predict someones beliefs, and we shouldn't try to. 
+
+The type of model used to create these scores is called a classification model. The output of a classifcation model is really just a probability, in this case the probability that someone will be pro-choice. 
+
+Whenever making decisions from a model, you have to set a reasonable cutoff. The cutoff 
 
 ## Task 4: Dashboarding
 
