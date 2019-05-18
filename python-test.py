@@ -32,4 +32,22 @@ print(q4)
 
 
 
-
+q2b = pandas.read_sql_query('''SELECT *
+        
+        FROM (SELECT 'first date' as type,
+                    forecastdate as date
+                          FROM voteshare 
+                                ORDER BY forecastdate
+                                      LIMIT 1) as first_date
+                          
+        UNION 
+                          
+        SELECT *
+        
+        FROM (SELECT 'last date' as type,
+                    forecastdate as date
+                          FROM voteshare 
+                                ORDER BY forecastdate DESC
+                                      LIMIT 1) as last_date''', conn)
+                   
+print(q2b)

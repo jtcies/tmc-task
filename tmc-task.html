@@ -531,7 +531,8 @@ FROM tmc.voteshare
 q2b</code></pre>
 <pre><code>SELECT *
 
-FROM (SELECT forecastdate 
+FROM (SELECT 'first date' as type,
+        forecastdate as date
       FROM tmc.voteshare 
       ORDER BY forecastdate
       LIMIT 1) as first_date
@@ -540,7 +541,8 @@ UNION
                   
 SELECT *
 
-FROM (SELECT forecastdate 
+FROM (SELECT 'last date' as type,
+        forecastdate as date
       FROM tmc.voteshare 
       ORDER BY forecastdate DESC
       LIMIT 1) as last_date
