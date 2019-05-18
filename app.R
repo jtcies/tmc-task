@@ -49,12 +49,10 @@ state_choices <- c("all", state_choices[order(state_choices)])
 
 # app ---------------------------
 
-ui <- fluidPage(
-    
-    tags$style(".irs-line {background: red} .irs-bar {background: blue}"),
+ui <- fluidPage(theme = "style.css",
 
     titlePanel("Election forecast"),
-
+    
     sidebarLayout(
         sidebarPanel(
             sliderInput(

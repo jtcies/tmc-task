@@ -1,9 +1,13 @@
 ---
-title: "D&T Hiring Test"
+title: "Data and Technology Strategist Hiring Test"
+author: "Joe Ciesielski"
+date: "2019-05-17"
 output: 
   html_document:
     code_folding: hide
+    css: www/style.css
 ---
+
 
 ```{r setup, include=FALSE}
 
@@ -16,6 +20,8 @@ voteshare <- readr::read_csv("data/voteshare.csv")
 candidate <- readr::read_csv("data/candidate.csv")
 
 ```
+
+All code for this submission can be found [here](https://github.com/jtcies/tmc-task).
 
 ## Task 1: SQL
 
@@ -60,6 +66,7 @@ ORDER BY win_probability DESC, voteshare DESC
 LIMIT 5
 
 ```
+<br>
 
 **Question 2: How many unique forecast dates are included in this data set? What is the earliest forecast? Latest forecast?**
 
@@ -74,7 +81,7 @@ q2a
 
 ```
 
-SELECT count(DISTINCT forecastdate) as unique_dates
+SELECT COUNT(DISTINCT forecastdate) as unique_dates
 
 FROM tmc.voteshare
                                
@@ -118,6 +125,8 @@ FROM (SELECT forecastdate
       LIMIT 1) as last_date
 
 ```
+
+<br>
 
 **Question 3: What was the average win probability for the November 6th forecast? Just for Democrats? Just for Republicans?**
 
@@ -184,6 +193,8 @@ WHERE forecastdate = '2018-11-06'
 
 ```
 
+<br>
+
 **Question 4: What is the average win probability for the November 6th forecast for incumbents vs non-incumbents? This will require a join to the candidates table.**
 
 ```{python}
@@ -224,23 +235,27 @@ AND voteshare.forecastdate = '2018-11-06'
 
 ```
 
+<br>
+
 ## Task 2: Explanatory Email
 
 **Question 1: Volunteers were told that they would be speaking with pro-choice voters, or in other words, they would be speaking with voters that were modeled to be pro-choice. One volunteer remarked that she came across a number of voters who were not in favor of reproductive rights. Write a sample email that field organizers can use to help explain why this might happen when using model scores.**
 
 There's a quote in statistics that says "All models are wrong but some are useful." We can never perfectly predict someone's beliefs, and we probably shouldn't try to. This model is just a tool to help drive resources to the correct location.
 
-The type of model used to create these scores is called a classification model. The output of a classifcation model is really just a probability, in this case the likelihood that someone will be pro-choice. 
+The type of model used to create these scores is called a classification model. The output of a classification model is really just a probability, in this case the likelihood that someone will be pro-choice. 
 
 When someone wants to make decisions for a model, like which houses to canvas, they have to set a reasonable cutoff for the score that is used to classify someone into a particular group. If they set the cutoff too high, they will have very few people in the group who shouldn't be, but they'll miss a lot of people who should be in that group. Set it too low, they'll get the opposite: lot's of people who should be in the group are not, but they won't miss many people who should be. So whoever is setting the cutoff has to decide which is a better. In either case though, the model will still misclassify people some of the time. 
 
 From my experience canvassing, I think there may be opportunity to engage in dialogue with these individuals. Conversation may offer opportunities for learning for both the volunteer and constituent. Additionally, they were rated as likely having pro-choice beliefs for a reason. Authentically listening to their concerns and addressing them honestly from the volunteer's perspective may help to push their thinking on the subject. 
 
+<br>
+
 ## Task 4: Dashboarding
 
 I created a Shiny application that can be accessed [here](https://jtcies.shinyapps.io/tmc-dashboard).
 
-When creating this dashoard, I tried to think about what might be useful to member organizations, what problems they might be trying to solve, or what questions they might have. I built the dashboard around the following questions:
+When creating this dashboard, I tried to think about what might be useful to member organizations, what problems they might be trying to solve, or what questions they might have. I built the dashboard around the following questions:
 
 - How close is each party to winning a majority in the house? How certain are we of that one party will take control?
 - What are the districts that are in play? Where might a resource investment have a substantial impact? 
@@ -250,25 +265,33 @@ The dashboard has three main visualizations Each of the charts can be filtered b
 
 ### Inputs
 
+![inputs](inputs.png)
+
 - Party Turnout[^1]: This slider changes the voteshare used to predict outcomes. 
 - State: Each of the charts can be filtered to look at predictions for each state. 
 - District: Each of the charts can be filtered to look at predictions for a specific district. 
 - Date: Filter the charts to show predictions on a specific day. 
-- Number of close races to show: Used to chanage the number of districts shows on the final chart (close races). 
+- Number of close races to show: Used to change the number of districts shows on the final chart (close races). 
 
 ### Visualizations
 
 #### Total seats won
 
+![wins](wins.png)
+
 This shows the number of seats each party is predicted to win, as well as 'toss-up' races (those in which none of the candidates is predicted to receive greater than 50% of the vote).
 
 #### Predicted wins over time
+
+![plot](plot.png)
 
 This shows the change over time in the number of seats each party is predicted to win, as well as 'toss-ups'. Note that is a state or district is chosen, this changes from a line chart to an area chart. 
 
 #### Closest races
 
-This shows the cloests races as defined by the difference between the predicted Republican and Democratic voteshare. The number of races shown can be changed by the 'Number of close races to show' input. 
+![closest](closest.png)
+
+This shows the closest races as defined by the difference between the predicted Republican and Democratic voteshare. The number of races shown can be changed by the 'Number of close races to show' input. 
 
 ### Next steps
 
@@ -276,4 +299,4 @@ This shows the cloests races as defined by the difference between the predicted 
 
 - Because the candidate data has more than one candidate per party in some districts, merging in the candidate data skewed the results. I would like to add candidate information to the plot, such as incumbency, but need to spend more time cleaning the candidate data. 
 
-[^1]: To adjust party turnout, I created a continuous distribution of outcomes for each district. To do this, I calucated the standard deviation for each district by subtracting the mean and 90th percentile voteshare and dividing by 1.28 (the z-score at the 90th percentile). The slider changes the probability input to the quantile function of the normal distribution, using the mean and standard deivation for each district. The Democrat and Republican quantiles are inversely proportional: moving the slider to the right increase the probability for Democrats and decreases it for Republicans. Voteshares for independent candidates do not update based on this slider.
+[^1]: To adjust party turnout, I created a continuous distribution of outcomes for each district. To do this, I calculated the standard deviation for each district by subtracting the mean and 90th percentile voteshare and dividing by 1.28 (the z-score at the 90th percentile). The slider changes the probability input to the quantile function of the normal distribution, using the mean and standard deviation for each district. The Democrat and Republican quantiles are inversely proportional: moving the slider to the right increase the probability for Democrats and decreases it for Republicans. Voteshares for independent candidates do not update based on this slider.
