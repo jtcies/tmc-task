@@ -1,0 +1,45 @@
+---
+title: "CRM Migration"
+output:
+  ioslides_presentation:
+    css: www/style.css
+---
+
+```{r setup, include = FALSE}
+
+# Your member has decided to switch CRMs (the system where they organize their email list, events, and other volunteer information). They have asked for TMC’s support to complete this work. Please outline:
+# What questions might you ask the member at the outset of this migration?
+# How would you organize yourself to project manage the migration?
+# What kinds of things could go poorly?
+# We want to better understand your approach to this hypothetical task and we will discuss during our call. You will have 5 minutes to outline your process, feel free to come with any tools (Asana, Trello, etc), documentation (1 pager), spreadsheet, Powerpoint or anything you may need to support the conversation. You will be able to share your screen.
+```
+
+```{r, echo=FALSE, eval=FALSE}
+
+rmarkdown::render(here::here("crm.Rmd"))
+
+```
+## Why? 
+
+* What is the purpose of the CRM? 
+* Why switch? How did you decide on the new system? 
+
+## What? Who? 
+
+* What are you hoping to achieve with this new system? 
+* Who are the constituents? What does communication with them look like? 
+* Who are the users? What are their incentives? 
+* What other systems does the CRM connect to? 
+* What reporting is needed / desired? 
+
+## Project Management
+
+* Create project brief and timeline
+* Establish communication protocols 
+* Lean approach / ship regularly
+
+## Potential Problems
+
+* Premature decision-making / optimization
+* Mapping fields inappropriately
+* 
