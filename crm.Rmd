@@ -1,8 +1,11 @@
 ---
-title: "CRM Migration"
+title: "CRM Migration - TMC Interview"
+author: "Joe Ciesielski"
+date: "2019-05-28"
 output:
   ioslides_presentation:
     css: www/style.css
+    incremental_bullets: true
 ---
 
 ```{r setup, include = FALSE}
@@ -19,27 +22,33 @@ output:
 rmarkdown::render(here::here("crm.Rmd"))
 
 ```
-## Why? 
+## Key questions
 
-* What is the purpose of the CRM? 
-* Why switch? How did you decide on the new system? 
-
-## What? Who? 
-
-* What are you hoping to achieve with this new system? 
-* Who are the constituents? What does communication with them look like? 
-* Who are the users? What are their incentives? 
-* What other systems does the CRM connect to? 
-* What reporting is needed / desired? 
+* Principles
+  * Core values? Organizational mission? 
+* Purpose
+  * What is the purpose of CRM? Why change? 
+* Vision and outcomes
+  * What are you hoping to achieve with new tool? 
+* Immediate actions
+  * What has your attention? 
+<br>
+<br>
+* Work from the bottom up (*GTD* approach)
 
 ## Project Management
 
-* Create project brief and timeline
-* Establish communication protocols 
-* Lean approach / ship regularly
+* Process driven by goals and needs
+    * find the right balance of lean and waterfall
+* Tools integrated into workflow flow from approach
+    * options: Trello, Gantt, Basecamp
+* Identify key staff and training needs
+* Establish project brief, timeline, and communication 
 
 ## Potential Problems
 
 * Premature decision-making / optimization
-* Mapping fields inappropriately
-* 
+* Lack of clarity around key decision points
+    * e.g. mapping fields inappropriately
+* Connections to existing systems
+* Customizations of exisiting or new tools
