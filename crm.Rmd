@@ -22,7 +22,7 @@ output:
 rmarkdown::render(here::here("crm.Rmd"))
 
 ```
-## Key questions
+## Key Questions
 
 * Principles
   * Core values? Organizational mission? 
@@ -40,15 +40,22 @@ rmarkdown::render(here::here("crm.Rmd"))
 
 * Process driven by goals and needs
     * find the right balance of lean and waterfall
-* Tools integrated into workflow flow from approach
+* Tools integrated into workflow and flow from approach
     * options: Trello, Gantt, Basecamp
 * Identify key staff and training needs
-* Establish project brief, timeline, and communication 
+* Establish project brief, timeline, and communication protocols
+* Document decision-making
+* Set-up meetings for implementation and high-level strategy
 
 ## Potential Problems
 
+* New system doesn't fix underlying issues
 * Premature decision-making / optimization
 * Lack of clarity around key decision points
     * e.g. mapping fields inappropriately
 * Connections to existing systems
 * Customizations of exisiting or new tools
+* Staff buy-in
+* Getting everyone access
+* Levels of complexity
+
