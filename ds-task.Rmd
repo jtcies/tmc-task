@@ -1,0 +1,104 @@
+```{r}
+
+library(tidyverse)
+library(tidymodels)
+library(lubridate)
+
+theme_set(theme_minimal())
+test_data <- read_csv(here::here("data/test_data.csv"))
+
+```
+```{r}
+
+colnames(test_data)
+```
+There are nine features, plus a key and our target. I'm thinking a tree-based model might be the most appropriate option.
+
+What is the breakdown of our label? 
+
+```{r}
+
+test_data %>%
+    count(target)
+
+```
+
+```{r}
+test_data <- test_data %>%
+    mutate_at(vars(ideo, employ, target), as.character)
+```
+
+About a 50/50 split between our two groups. I don't think we'll have to worry about class imabalance. We should split up our training and testing data. 
+
+```{r}
+test <- test_data %>%
+    filter(is.na(target))
+
+train <- test_data %>%
+    filter(!is.na(target))
+
+```
+## Exploring predictors
+
+Start with age
+
+```{r}
+
+train %>% 
+    ggplot(aes(birth_year)) +
+        geom_histogram(binwidth = 2)
+
+```
+
+Mostly boomers. We should convert it to an age to make it slightly more interpretable. 
+
+```{r}
+
+train  <- train %>% 
+    mutate(age = year(as.period(interval(ymd(paste0(birth_year, "0101")), today()))))
+
+train %>%
+    count(age, sort = TRUE)
+```
+### Categorical variables
+
+```{r}
+
+train %>% 
+    select_if(is.character) %>%
+    lapply(., table, useNA = "always")
+    
+
+```
+A small amount of missingness we'll have to deal with. Mostly white, college educated, but a pretty even split between Democrats and Repbulicans. I wonder if missing is true missing or if that means independent. Is there any correlation between missing variables?
+
+```{r}
+
+train %>% 
+    filter(is.na(party)) %>% 
+    count(gender, race_4, edu)
+
+```
+
+I think for `race` and `edu` we should fill in missing with the mode and for party we can impute from the other variables. 
+
+I wonder what that labels in `ideo` stand for?  
+
+```{r}
+train %>% 
+    count(ideo, race_4)
+
+```
+
+
+### Numerical variables
+
+```{r}
+train %>% 
+    sel
+
+```
+
+## Filling in missing data
+
+
