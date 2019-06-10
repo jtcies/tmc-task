@@ -3,6 +3,7 @@
 library(tidyverse)
 library(tidymodels)
 library(lubridate)
+library(GGally)
 
 theme_set(theme_minimal())
 test_data <- read_csv(here::here("data/test_data.csv"))
@@ -22,20 +23,36 @@ test_data %>%
     count(target)
 
 ```
+Some preprocessing.
 
 ```{r}
+
 test_data <- test_data %>%
-    mutate_at(vars(ideo, employ, target), as.character)
+    mutate_at(vars(ideo, employ, target), as.factor) %>%
+    mutate(
+      age = year(as.period(interval(ymd(paste0(birth_year, "0101")), today())))
+    )
+
 ```
 
-About a 50/50 split between our two groups. I don't think we'll have to worry about class imabalance. We should split up our training and testing data. 
+About a 50/50 split between our two groups. I don't think we'll have to worry about class imbalance. I'll split up the data between a training, holdout, and test date. 
 
 ```{r}
 test <- test_data %>%
     filter(is.na(target))
 
+set.seed(2019)
+
+holdout_ids <- test_data %>%
+    filter(!is.na(target)) %>%
+    sample_frac(.2) %>%
+    pull(key)
+
 train <- test_data %>%
-    filter(!is.na(target))
+    filter(!is.na(target), !key %in% holdout_ids)
+
+holdout <- test_data %>%
+    filter(!is.na(target), key %in% holdout_ids)
 
 ```
 ## Exploring predictors
@@ -86,19 +103,38 @@ I wonder what that labels in `ideo` stand for?
 
 ```{r}
 train %>% 
-    count(ideo, race_4)
+    count(ideo, party) %>%
+    mutate(pct = n / sum(n)) %>% 
+    select(-n) %>%
+    spread(ideo, pct)
 
 ```
-
-
-### Numerical variables
+Looks like 1 is progressive, -1 is conservative. Check how the target relates to party and ideology. 
 
 ```{r}
-train %>% 
-    sel
-
+train %>%
+    count(party, target) %>%
+    spread(target, n)
 ```
+1 is support for the policy (which restricts access to reproductive rights), 0 is oppose.
 
-## Filling in missing data
+Let's look at how categorical variables relate to the target. 
+
+```{r}
+
+var_counts <- function(predictor) {
+
+    pred <- enquo(predictor)
+
+    train %>%
+        select(!!pred, target) %>%
+        count(target) %>%
+        mutate(pct = n /  sum(n))
+    
+}
+
+
+var_counts(gender)    
+```
 
 
