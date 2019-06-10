@@ -3,8 +3,8 @@
 library(tidyverse)
 library(tidymodels)
 library(lubridate)
-library(rpart)
-library(rpart.plot)
+library(factoextra)
+
 
 theme_set(theme_minimal())
 test_data <- read_csv(here::here("data/test_data.csv"))
@@ -58,6 +58,7 @@ holdout <- test_data %>%
     filter(!is.na(target), key %in% holdout_ids)
 
 ```
+
 ## Exploring predictors
 
 Start with age
@@ -72,8 +73,6 @@ train %>%
 
 Mostly boomers. My guess is that this data is of likley voters rather than whole population since it is so skewed towards individuals above 50. 
 
-
-### Categorical variables
 
 ```{r}
 
@@ -262,4 +261,21 @@ linear_mod %>%
 Unsuprisingly, the strongest signals seems to be party and ideology. Gender too has a statistically significant effect.
 
 This also tells me that conservatives feel more strongly about this policy than progressives do. Conservative ideology has a much stronger effect on policy support than progressive ideology does on policy opposition.
+
+Can we generate some clusters that might be good predictors?
+
+```{r}
+
+train_kmeans <- train %>% 
+  filter(complete.cases(.)) %>% 
+  select(income_pct, activist_pct, age) %>% 
+  mutate_all(function(x) scale(as.numeric(as.factor(x))))
+
+fviz_nbclust(train_kmeans, kmeans, method = "silhouette", k.max = 20)
+
+kmod <- kmeans(train_kmeans, centers = 7, nstart = 25)
+
+
+
+```
 
