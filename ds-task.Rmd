@@ -4,6 +4,7 @@ library(tidyverse)
 library(tidymodels)
 library(lubridate)
 library(rpart)
+library(rpart.plot)
 
 theme_set(theme_minimal())
 test_data <- read_csv(here::here("data/test_data.csv"))
@@ -78,8 +79,7 @@ Mostly boomers. My guess is that this data is of likley voters rather than whole
 
 train %>% 
     select(gender, ideo, race_4, edu, employ, party) %>% 
-    lapply(., table, useNA = "always")
-    
+    map(table, useNA = "always") 
 
 ```
 
@@ -213,34 +213,53 @@ It looks like older respondents are more likely to support the policy. Those who
 Let's see how current values relate to policy support? 
 
 ```{r}
+
 train %>% 
-  ggplot(aes(activist_pct)) +
-    geom_histogram(bins = 20) +
-    facet_grid(target ~ ideo)
+  group_by(ideo, target) %>% 
+  summarise(med_activist_pct = mean(activist_pct)) %>% 
+  spread(target, med_activist_pct)
 
 ```
 
-How about if we transform it to a normal distribution?
-
-```{r}
-
-u2 <- runif(nrow(train))
-
-train %>% 
-  mutate(activist_normed = sqrt(-2 * log(activist_pct)) * cos(2 * pi * u2)) %>% 
-  ggplot(aes(activist_normed, fill = target)) +
-    geom_histogram(bins = 20) +
-    facet_grid(target ~ ideo)
-
-
-```
-
-It looks like this may help slightly, showing that after folks who are more activisit are slightly more likley to have the stance in line with their policy. 
+Interestingly, it looks like progressives who support the policy policy across ideological lines are more likley to be activist than those who oppose the policy. Perhaps there is some signal that. 
 
 Let's see if some modeling can help us parse out any other signals? 
 
 ```{r}
 
+u2 <- runif(nrow(train))
+
+linear_mod <- glm(
+  target ~ ., 
+  data = train %>% 
+    mutate(
+      race_4 = fct_relevel(race_4, "White"),
+      ideo = fct_relevel(ideo, "0")
+    ) %>% 
+    select(-key, -birth_year),
+  family = binomial(link = "logit")
+)
+
+linear_mod %>% 
+  tidy() %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(
+    term = fct_reorder(term, estimate),
+    upper = estimate + 2 * std.error,
+    lower = estimate - 2 * std.error
+  ) %>% 
+  ggplot(aes(term, estimate, ymin = lower, ymax = upper)) +
+    geom_point() +
+    geom_linerange() +
+    coord_flip() +
+    geom_hline(yintercept = 0, linetype = 3) +
+    labs(
+      title = "Coefficient plot for logisitc regression of policy support"
+    )
 
 ```
+
+Unsuprisingly, the strongest signals seems to be party and ideology. Gender too has a statistically significant effect.
+
+This also tells me that conservatives feel more strongly about this policy than progressives do. Conservative ideology has a much stronger effect on policy support than progressive ideology does on policy opposition.
 
