@@ -3,16 +3,18 @@
 library(tidyverse)
 library(tidymodels)
 library(lubridate)
-library(GGally)
+library(rpart)
 
 theme_set(theme_minimal())
 test_data <- read_csv(here::here("data/test_data.csv"))
 
 ```
+
 ```{r}
 
 colnames(test_data)
 ```
+
 There are nine features, plus a key and our target. I'm thinking a tree-based model might be the most appropriate option.
 
 What is the breakdown of our label? 
@@ -62,31 +64,25 @@ Start with age
 ```{r}
 
 train %>% 
-    ggplot(aes(birth_year)) +
+    ggplot(aes(age)) +
         geom_histogram(binwidth = 2)
 
 ```
 
-Mostly boomers. We should convert it to an age to make it slightly more interpretable. 
+Mostly boomers. My guess is that this data is of likley voters rather than whole population since it is so skewed towards individuals above 50. 
 
-```{r}
 
-train  <- train %>% 
-    mutate(age = year(as.period(interval(ymd(paste0(birth_year, "0101")), today()))))
-
-train %>%
-    count(age, sort = TRUE)
-```
 ### Categorical variables
 
 ```{r}
 
 train %>% 
-    select_if(is.character) %>%
+    select(gender, ideo, race_4, edu, employ, party) %>% 
     lapply(., table, useNA = "always")
     
 
 ```
+
 A small amount of missingness we'll have to deal with. Mostly white, college educated, but a pretty even split between Democrats and Repbulicans. I wonder if missing is true missing or if that means independent. Is there any correlation between missing variables?
 
 ```{r}
@@ -103,19 +99,51 @@ I wonder what that labels in `ideo` stand for?
 
 ```{r}
 train %>% 
-    count(ideo, party) %>%
+    group_by(party) %>% 
+    count(ideo) %>% 
     mutate(pct = n / sum(n)) %>% 
     select(-n) %>%
     spread(ideo, pct)
+```
+
+Looks like 1 is progressive, -1 is conservative. Missing is party is spread out evenly among ideology, which makes me think it is true missing. I would assume party based on ideology, but we have people with 0 ideology. In that case, we can use a logisitc regression to imput it from the other variables. 
+
+
+```{r}
+
+party_mod <- glm(
+  factor(party) ~ ., 
+  data = train %>% select(-target, -key, -birth_year) %>% filter(!is.na(party)),
+  family = binomial(link = "logit")
+)
+
+summary(party_mod)
 
 ```
-Looks like 1 is progressive, -1 is conservative. Check how the target relates to party and ideology. 
+
+Looks like ideology and race are the only significant factors. 
+
+```{r}
+
+train %>% 
+  group_by(ideo, race_4) %>% 
+  count(party) %>% 
+  mutate(pct = n / sum(n)) %>% 
+  ggplot(aes(party, pct)) +
+    geom_col() +
+    facet_grid(race_4 ~ ideo)
+
+```
+
+
+Check how the target relates to party and ideology. 
 
 ```{r}
 train %>%
-    count(party, target) %>%
+    count(ideo, target) %>%
     spread(target, n)
 ```
+
 1 is support for the policy (which restricts access to reproductive rights), 0 is oppose.
 
 Let's look at how categorical variables relate to the target. 
@@ -124,17 +152,95 @@ Let's look at how categorical variables relate to the target.
 
 var_counts <- function(predictor) {
 
-    pred <- enquo(predictor)
+    pred <- rlang::sym(predictor)
 
     train %>%
-        select(!!pred, target) %>%
+        mutate(var = as.character(fct_explicit_na(!! pred))) %>% 
+        group_by(var) %>%
         count(target) %>%
-        mutate(pct = n /  sum(n))
+        ungroup() %>% 
+        transmute(
+          pred = predictor,
+          var = var,
+          target = target,
+          pct = n /  sum(n)
+        )
     
 }
 
+vars <- c("gender", "race_4", "edu", "employ", "party", "ideo")
 
-var_counts(gender)    
+map_dfr(vars, var_counts) %>% 
+  ggplot(aes(var, pct, fill = target)) +
+    geom_col(position = "dodge") +
+    facet_wrap(~pred, scales = "free_x")
+
 ```
 
+Education and employ do not have strong connections with stance on policy. Women are less likely to support the policy even though a plurarily of women do still support it. Party may be a stronger predictor than even ideology, especially among republicans. Respondenents who are Black or Latinx are less likley to support the policy. 
+
+Let's take a look at some of the numerical variables. First just the distributions.
+
+```{r}
+
+
+num_vars <- train %>% 
+  select(activist_pct, income_pct, age, target) %>% 
+  gather(var, val, 1:3) 
+
+num_vars %>% 
+  ggplot(aes(val)) +
+    geom_histogram(bins = 20) +
+    facet_wrap(~var, scales = "free_x")
+
+```
+
+Likelihood of being involed in activism looks like a uniform distribution. Age as we saw was skewed toward older folks, and income is a percentile that has already been normalized within our sample. I wonder how the 'activism' question was asked given that it's a percent.
+
+Let's see how they relate to target?
+
+```{r}
+
+num_vars %>% 
+  ggplot(aes(val, fill = target)) +
+    geom_histogram(bins = 20, position = "fill") +
+    facet_wrap(~var, scales = "free_x")
+
+```
+
+It looks like older respondents are more likely to support the policy. Those who are wealthier are also more likely to support the policy, but this only shows up at the extreme ends of the distribution. Activist percent doesn't have a connection with policy support. I wonder if some feature engineering would help out with this? 
+
+Let's see how current values relate to policy support? 
+
+```{r}
+train %>% 
+  ggplot(aes(activist_pct)) +
+    geom_histogram(bins = 20) +
+    facet_grid(target ~ ideo)
+
+```
+
+How about if we transform it to a normal distribution?
+
+```{r}
+
+u2 <- runif(nrow(train))
+
+train %>% 
+  mutate(activist_normed = sqrt(-2 * log(activist_pct)) * cos(2 * pi * u2)) %>% 
+  ggplot(aes(activist_normed, fill = target)) +
+    geom_histogram(bins = 20) +
+    facet_grid(target ~ ideo)
+
+
+```
+
+It looks like this may help slightly, showing that after folks who are more activisit are slightly more likley to have the stance in line with their policy. 
+
+Let's see if some modeling can help us parse out any other signals? 
+
+```{r}
+
+
+```
 
