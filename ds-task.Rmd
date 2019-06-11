@@ -334,8 +334,7 @@ search_params <- function(ntimes) {
       eta = sample(seq(0.01, 0.3, by = 0.01), 1),
       min_child_weight = sample(1:20, 1),
       subsample = sample(seq(0.5, 0.8, by = 0.1), 1),
-      colsample_bytree = sample(seq(0.5, 0.9, by = 0.1), 1),
-      gamma = 5
+      colsample_bytree = sample(seq(0.5, 0.9, by = 0.1), 1)
     )
     
     xgb_cv <- xgb.cv(
@@ -354,7 +353,6 @@ search_params <- function(ntimes) {
       min_child_weight = params$min_child_weight,
       subsample = params$subsample,
       colsample_bytree = params$colsample_bytree,
-      gamma = params$gamma,
       seed = seed
     )
     
@@ -406,8 +404,7 @@ final_params <- list(
   min_child_weight = best_params$min_child_weight,
   eta = best_params$eta,
   subsample = best_params$subsample,
-  colsample_bytree = best_params$colsample_bytree,
-  gamma = best_params$gamma
+  colsample_bytree = best_params$colsample_bytree
 )
 ```
 
@@ -489,6 +486,10 @@ scores <- seq(0.1, 0.9, by = 0.1) %>%
 scores
 
 ```
+
+Somewhat suprisingly, scores on the holdout are slightly better than the training set. However, training set used cross-validation to determine model parameters and holdout is a pretty small sample, so this is probably ok. 
+
+0.5 is the best cutoff score for all metrics. 
 
 ```{r}
 
