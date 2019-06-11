@@ -261,9 +261,22 @@ Unsuprisingly, the strongest signals seems to be party and ideology. Gender too 
 
 This also tells me that conservatives feel more strongly about this policy than progressives do. Conservative ideology has a much stronger effect on policy support than progressive ideology does on policy opposition.
 
+One idea for engineering a feature is creating a retired flag. It may be that those who are unemployed at an older age have different views that those who are unemployed involuntarily. 
+
+```{r}
+
+train %>% 
+  mutate(retired = if_else(age >= 65 & employ == 0, 1, 0)) %>% 
+  filter(employ == 0) %>% 
+  ggplot(aes(age, target, color = factor(retired))) +
+    geom_jitter()
+
+```
+
 Fill in the missing variables. 
 
 ```{r}
+
 fill_missing <- function(data) {
 
     data %>%
@@ -278,7 +291,9 @@ fill_missing <- function(data) {
                 is.na(party) & party_pred >= 0.5 ~ "Dem",
                 is.na(party) & party_pred < 0.5 ~ "Rep",
                 TRUE ~ party
-            )
+            ),
+            retired = if_else(age >= 65 & employ == 0, 1, 0),
+            prog_activist = if_else(activist_pct > 0.5 & ideo == 1, 1, 0)
        ) %>%
        select(-party_pred)
 
@@ -289,6 +304,7 @@ holdout <- fill_missing(holdout)
 test <- fill_missing(test)
 
 ```
+
 ## Modeling
 
 ```{r}
@@ -365,7 +381,7 @@ search_params <- function(ntimes) {
   
 }
 
-param_results <- search_params(100) %>% 
+param_results <- search_params(200) %>% 
   mutate(round = cumsum(iter == 1))
 
 # find the best iteration from each round
@@ -444,6 +460,8 @@ holdout_pred <- tibble(
 predictions <- bind_rows(train_pred, holdout_pred) %>% 
   mutate(type = fct_relevel(type, "train")) 
 
+write_csv(predictions, here::here("output/train_predictions.csv"))
+
 roc_plot <- predictions %>% 
   ggplot(aes(d = target, m = pred, color = type)) +
     geom_roc() +
@@ -452,6 +470,15 @@ roc_plot <- predictions %>%
 calc_auc(roc_plot)
 
 roc_plot
+
+```
+
+```{r}
+
+predictions %>% 
+  ggplot(aes(pred, color = factor(target))) +
+    geom_density(size = 2) +
+    facet_wrap(~type)
 
 ```
 
@@ -483,7 +510,8 @@ calc_f1 <- function(cutoff) {
 scores <- seq(0.1, 0.9, by = 0.1) %>% 
   map_dfr(calc_f1) 
 
-scores
+scores %>% 
+  arrange(type)
 
 ```
 
@@ -504,7 +532,6 @@ xgb.importance(model = fit) %>%
 ## Apply predictions to test set
 
 ```{r}
-
 
 test_matrix <- create_matrix(test)
 
