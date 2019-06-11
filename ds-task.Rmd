@@ -66,13 +66,12 @@ Start with age
 ```{r}
 
 train %>% 
-    ggplot(aes(age)) +
-        geom_histogram(binwidth = 2)
+    ggplot(aes(age, color = target)) +
+        geom_density(size = 2)
 
 ```
 
-Mostly boomers. My guess is that this data is of likley voters rather than whole population since it is so skewed towards individuals above 50. 
-
+Mostly boomers. My guess is that this data is of likley voters rather than whole population since it is so skewed towards individuals above 50. Older voters are slightly more likley to support the policy.
 
 ```{r}
 
@@ -92,7 +91,7 @@ train %>%
 
 ```
 
-I think for `race` and `edu` we should fill in missing with the mode and for party we can impute from the other variables. 
+I think for `race` and `edu` we should fill in missing with the mode.
 
 I wonder what that labels in `ideo` stand for?  
 
@@ -105,34 +104,9 @@ train %>%
     spread(ideo, pct)
 ```
 
-Looks like 1 is progressive, -1 is conservative. Missing is party is spread out evenly among ideology, which makes me think it is true missing. I would assume party based on ideology, but we have people with 0 ideology. In that case, we can use a logisitc regression to imput it from the other variables. 
+Looks like 1 is progressive, -1 is conservative. Those missing `party` are spread out evenly among ideology, which makes me think it is true missing. I would assume party based on ideology, but we have people with 0 ideology. 
 
-
-```{r}
-
-party_mod <- glm(
-  factor(party) ~ ., 
-  data = train %>% select(-target, -key, -birth_year) %>% filter(!is.na(party)),
-  family = binomial(link = "logit")
-)
-
-summary(party_mod)
-
-```
-
-Looks like ideology and race are the only significant factors. 
-
-```{r}
-
-train %>% 
-  group_by(ideo, race_4) %>% 
-  count(party) %>% 
-  mutate(pct = n / sum(n)) %>% 
-  ggplot(aes(party, pct)) +
-    geom_col() +
-    facet_grid(race_4 ~ ideo)
-
-```
+I initally tried imputing party from the other variables, but the model performs better when just making the missing explicit. Presumably there is information contained in the missingness.
 
 Check how the target relates to party and ideology. 
 
@@ -175,12 +149,11 @@ map_dfr(vars, var_counts) %>%
 
 ```
 
-Education and employ do not have strong connections with stance on policy. Women are less likely to support the policy even though a plurarily of women do still support it. Party may be a stronger predictor than even ideology, especially among republicans. Respondenents who are Black or Latinx are less likley to support the policy. 
+Education and employment do not have strong connections with stance on policy. Women are less likely to support the policy even though a plurality of women do still support it. Party may be a stronger predictor than even ideology, especially among republicans. Respondenents who are Black or Latinx are less likley to support the policy. 
 
 Let's take a look at some of the numerical variables. First just the distributions.
 
 ```{r}
-
 
 num_vars <- train %>% 
   select(activist_pct, income_pct, age, target) %>% 
@@ -200,9 +173,9 @@ Let's see how they relate to target?
 ```{r}
 
 num_vars %>% 
-  ggplot(aes(val, fill = target)) +
-    geom_histogram(bins = 20, position = "fill") +
-    facet_wrap(~var, scales = "free_x")
+  ggplot(aes(val, color = target)) +
+    geom_density(size = 2) +
+    facet_wrap(~var, scales = "free")
 
 ```
 
@@ -219,13 +192,12 @@ train %>%
 
 ```
 
-Interestingly, it looks like progressives who support the policy policy across ideological lines are more likley to be activist than those who oppose the policy. Perhaps there is some signal that. 
+Interestingly, it looks like, across ideological lines, those who support the policy are more likley to be activist than those opposed to it. Perhaps the policy is controversial and those who support it think of themselves as activists or change agents?
 
 Let's see if some modeling can help us parse out any other signals? 
 
 ```{r}
 
-u2 <- runif(nrow(train))
 
 linear_mod <- glm(
   target ~ ., 
@@ -282,20 +254,10 @@ fill_missing <- function(data) {
     data %>%
         replace_na(list(race_4 = "White", employ = 0, edu = "college")) %>%
         mutate(
-            party_pred = case_when(
-                is.na(party) ~ predict(party_mod, ., type = "response"),
-                party == "Dem" ~ 0,
-                party == "Rep" ~ 1
-            ),
-            party = case_when(
-                is.na(party) & party_pred >= 0.5 ~ "Dem",
-                is.na(party) & party_pred < 0.5 ~ "Rep",
-                TRUE ~ party
-            ),
+            party = fct_explicit_na(party),
             retired = if_else(age >= 65 & employ == 0, 1, 0),
             prog_activist = if_else(activist_pct > 0.5 & ideo == 1, 1, 0)
-       ) %>%
-       select(-party_pred)
+       ) 
 
 }
 
@@ -522,6 +484,8 @@ Somewhat suprisingly, scores on the holdout are slightly better than the trainin
 ```{r}
 
 xgb.importance(model = fit) %>%
+  xgb.ggplot.importance()
+  
   mutate(Feature = fct_reorder(Feature, Gain)) %>% 
   ggplot(aes(Feature, Gain)) +
     geom_col() +
