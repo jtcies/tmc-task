@@ -4,7 +4,8 @@ library(tidyverse)
 library(tidymodels)
 library(lubridate)
 library(factoextra)
-
+library(xgboost)
+library(mlr)
 
 theme_set(theme_minimal())
 test_data <- read_csv(here::here("data/test_data.csv"))
@@ -134,7 +135,6 @@ train %>%
 
 ```
 
-
 Check how the target relates to party and ideology. 
 
 ```{r}
@@ -262,20 +262,74 @@ Unsuprisingly, the strongest signals seems to be party and ideology. Gender too 
 
 This also tells me that conservatives feel more strongly about this policy than progressives do. Conservative ideology has a much stronger effect on policy support than progressive ideology does on policy opposition.
 
-Can we generate some clusters that might be good predictors?
+Fill in the missing variables. 
+
+```{r}
+fill_missing <- function(data) {
+
+    data %>%
+        replace_na(list(race_4 = "White", employ = 0, edu = "college")) %>%
+        mutate(
+            party_pred = case_when(
+                is.na(party) ~ predict(party_mod, ., type = "response"),
+                party == "Dem" ~ 0,
+                party == "Rep" ~ 1
+            ),
+            party = case_when(
+                is.na(party) & party_pred >= 0.5 ~ "Dem",
+                is.na(party) & party_pred < 0.5 ~ "Rep",
+                TRUE ~ party
+            )
+       ) %>%
+       select(-party_pred)
+
+}
+
+train <- fill_missing(train)
+holdout <- fill_missing(holdout)
+test <- fill_missing(test)
+
+```
+## Modeling
 
 ```{r}
 
-train_kmeans <- train %>% 
-  filter(complete.cases(.)) %>% 
-  select(income_pct, activist_pct, age) %>% 
-  mutate_all(function(x) scale(as.numeric(as.factor(x))))
+create_matrix <- function(data) {
 
-fviz_nbclust(train_kmeans, kmeans, method = "silhouette", k.max = 20)
+    target <- as.numeric(as.character(data$target))
 
-kmod <- kmeans(train_kmeans, centers = 7, nstart = 25)
+    mat <- model.matrix(
+        ~ . + 0,
+        data = data %>%
+            select(-key, -target, -birth_year)
+    )
+
+    xgb.DMatrix(data = mat, label = target)
+
+}
 
 
+train_matrix <- create_matrix(train)
+
+
+```
+Finding the ideal parameters.
+
+```{r}
+
+params <- list(
+    objective = "binary:logistic", 
+    eta=0.1, 
+    eval_metric = "auc"
+)
+
+xgbcv <- xgb.cv(
+  params = params, data = train_matrix, 
+  nrounds = 100, 
+  nfold = 5, 
+  showsd = T, 
+  print_every_n = 10
+)
 
 ```
 
