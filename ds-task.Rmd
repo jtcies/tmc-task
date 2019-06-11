@@ -313,23 +313,69 @@ train_matrix <- create_matrix(train)
 
 
 ```
+
 Finding the ideal parameters.
 
 ```{r}
 
-params <- list(
-    objective = "binary:logistic", 
-    eta=0.1, 
-    eval_metric = "auc"
+# conver this to map that returns a data frame with the paramters
+
+best_params <- list()
+best_seed <- 1111
+best_auc = 0
+best_round = 0
+
+for (i in 1:100) {
+  
+  
+  params <- list(
+    objective = "binary:logistic",
+    eval_metric = "auc",
+    max_depth = sample(3, 10, 1),
+    eta = sample(seq(0.01, 3, by = 0.01), 1),
+    min_child_weight = sample(1:40, 1),
+    subsample = sample(seq(0.5, 0.8, by = 0.1), 1),
+    colsample_bytree = sample(seq(0.5, 0.9, by = 0.1), 1)
+  )
+  
+  
+  seed <- set.seed(sample.int(10000, 1))
+  
+  xgb_cv <- xgb.cv(
+    data = train_matrix,
+    params = params,
+    nfold = 6,
+    nrounds = 1000,
+    early_stopping_rounds = 8
+  )
+  
+  best_iter_round <- xgb_cv$best_iteration 
+  
+  best_round_auc <- data.frame(xgb_cv$evaluation_log) %>% 
+    dplyr::slice(best_iter_round) %>% 
+    pull(test_auc_mean)
+  
+  if (best_round_auc > best_auc) {
+    
+    best_auc <- best_round_auc
+    best_round <- best_iter_round
+    best_seed <- seed
+    best_param <- params
+    
+  }
+  
+}
+
+
+rounds <- best_round
+set.seed(best_seed)
+
+fit <- xgb.train(
+  data = train_matrix,
+  params = best_param,
+  nrounds = rounds,
 )
 
-xgbcv <- xgb.cv(
-  params = params, data = train_matrix, 
-  nrounds = 100, 
-  nfold = 5, 
-  showsd = T, 
-  print_every_n = 10
-)
 
 ```
 
