@@ -233,18 +233,6 @@ Unsuprisingly, the strongest signals seems to be party and ideology. Gender too 
 
 This also tells me that conservatives feel more strongly about this policy than progressives do. Conservative ideology has a much stronger effect on policy support than progressive ideology does on policy opposition.
 
-One idea for engineering a feature is creating a retired flag. It may be that those who are unemployed at an older age have different views that those who are unemployed involuntarily. 
-
-```{r}
-
-train %>% 
-  mutate(retired = if_else(age >= 65 & employ == 0, 1, 0)) %>% 
-  filter(employ == 0) %>% 
-  ggplot(aes(age, target, color = factor(retired))) +
-    geom_jitter()
-
-```
-
 Fill in the missing variables. 
 
 ```{r}
@@ -255,7 +243,6 @@ fill_missing <- function(data) {
         replace_na(list(race_4 = "White", employ = 0, edu = "college")) %>%
         mutate(
             party = fct_explicit_na(party),
-            retired = if_else(age >= 65 & employ == 0, 1, 0),
             prog_activist = if_else(activist_pct > 0.5 & ideo == 1, 1, 0)
        ) 
 
@@ -486,11 +473,6 @@ Somewhat suprisingly, scores on the holdout are slightly better than the trainin
 xgb.importance(model = fit) %>%
   xgb.ggplot.importance()
   
-  mutate(Feature = fct_reorder(Feature, Gain)) %>% 
-  ggplot(aes(Feature, Gain)) +
-    geom_col() +
-    coord_flip()
-
 ```
 
 ## Apply predictions to test set
