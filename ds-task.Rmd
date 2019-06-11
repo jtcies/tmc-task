@@ -3,9 +3,8 @@
 library(tidyverse)
 library(tidymodels)
 library(lubridate)
-library(factoextra)
 library(xgboost)
-library(mlr)
+library(plotROC)
 
 theme_set(theme_minimal())
 test_data <- read_csv(here::here("data/test_data.csv"))
@@ -310,6 +309,7 @@ create_matrix <- function(data) {
 
 
 train_matrix <- create_matrix(train)
+holdout_matrix <- create_matrix(holdout)
 
 
 ```
@@ -317,65 +317,202 @@ train_matrix <- create_matrix(train)
 Finding the ideal parameters.
 
 ```{r}
-
-# conver this to map that returns a data frame with the paramters
-
-best_params <- list()
-best_seed <- 1111
-best_auc = 0
-best_round = 0
-
-for (i in 1:100) {
+search_params <- function(ntimes) {
   
+  results <- tibble()
   
-  params <- list(
-    objective = "binary:logistic",
-    eval_metric = "auc",
-    max_depth = sample(3, 10, 1),
-    eta = sample(seq(0.01, 3, by = 0.01), 1),
-    min_child_weight = sample(1:40, 1),
-    subsample = sample(seq(0.5, 0.8, by = 0.1), 1),
-    colsample_bytree = sample(seq(0.5, 0.9, by = 0.1), 1)
-  )
-  
-  
-  seed <- set.seed(sample.int(10000, 1))
-  
-  xgb_cv <- xgb.cv(
-    data = train_matrix,
-    params = params,
-    nfold = 6,
-    nrounds = 1000,
-    early_stopping_rounds = 8
-  )
-  
-  best_iter_round <- xgb_cv$best_iteration 
-  
-  best_round_auc <- data.frame(xgb_cv$evaluation_log) %>% 
-    dplyr::slice(best_iter_round) %>% 
-    pull(test_auc_mean)
-  
-  if (best_round_auc > best_auc) {
+  for(i in 1:ntimes) {
     
-    best_auc <- best_round_auc
-    best_round <- best_iter_round
-    best_seed <- seed
-    best_param <- params
+    seed <- sample.int(10000, 1)
     
+    set.seed(seed)
+    
+    params <- list(
+      objective = "binary:logistic",
+      eval_metric = "auc",
+      max_depth = sample(3:15, 1),
+      eta = sample(seq(0.01, 0.3, by = 0.01), 1),
+      min_child_weight = sample(1:20, 1),
+      subsample = sample(seq(0.5, 0.8, by = 0.1), 1),
+      colsample_bytree = sample(seq(0.5, 0.9, by = 0.1), 1),
+      gamma = 5
+    )
+    
+    xgb_cv <- xgb.cv(
+      data = train_matrix,
+      params = params,
+      nfold = 6,
+      nrounds = 1000,
+      early_stopping_rounds = 10
+    )
+    
+    log <- as_tibble(xgb_cv$evaluation_log)
+    
+    param_df <- tibble(
+      max_depth = params$max_depth, 
+      eta = params$eta, 
+      min_child_weight = params$min_child_weight,
+      subsample = params$subsample,
+      colsample_bytree = params$colsample_bytree,
+      gamma = params$gamma,
+      seed = seed
+    )
+    
+    this_result <- cbind(log, param_df)
+    
+    results <- bind_rows(results, this_result)
+  
   }
+  results 
   
 }
 
+param_results <- search_params(100) %>% 
+  mutate(round = cumsum(iter == 1))
 
-rounds <- best_round
+# find the best iteration from each round
+
+best_iter <- param_results %>% 
+  group_by(round) %>% 
+  filter(test_auc_mean == max(test_auc_mean)) %>% 
+  distinct(round, .keep_all = TRUE) %>% 
+  ungroup()
+
+best_iter %>% 
+  ggplot(aes(test_auc_mean)) +
+    geom_histogram(binwidth = 0.001)
+
+# plot each param against test_auc
+
+plot_params <- function(col) {
+  
+  col <- rlang::sym(col)
+  
+  ggplot(best_iter, aes(!! col, test_auc_mean)) +
+    geom_point() +
+    geom_smooth()
+  
+}
+
+c("max_depth", "eta", "subsample", "min_child_weight", "colsample_bytree") %>% 
+  map(plot_params)
+
+best_params <- best_iter %>% 
+  filter(test_auc_mean == max(test_auc_mean)) %>% 
+  dplyr::slice(1)
+
+final_params <- list(
+  max_depth = best_params$max_depth,
+  min_child_weight = best_params$min_child_weight,
+  eta = best_params$eta,
+  subsample = best_params$subsample,
+  colsample_bytree = best_params$colsample_bytree,
+  gamma = best_params$gamma
+)
+```
+
+Fit the model with those best parameters.
+
+```{r}
+rounds <- best_params %>% 
+  pull(iter)
+  
+best_seed <- best_params %>% 
+  pull(seed)
+
 set.seed(best_seed)
 
-fit <- xgb.train(
-  data = train_matrix,
-  params = best_param,
-  nrounds = rounds,
+fit <- xgb.train(train_matrix, params = final_params, nrounds = rounds)
+
+```
+
+Evaluate on the holdout set.
+
+```{r}
+
+train_pred <- tibble(
+  key = train$key,
+  target = as.numeric(as.character(train$target)), 
+  pred = predict(fit, train_matrix),
+  type = "train"
 )
 
+holdout_pred <- tibble(
+  key = holdout$key,
+  target = as.numeric(as.character(holdout$target)), 
+  pred = predict(fit, holdout_matrix),
+  type = "holdout"
+)
+
+predictions <- bind_rows(train_pred, holdout_pred) %>% 
+  mutate(type = fct_relevel(type, "train")) 
+
+roc_plot <- predictions %>% 
+  ggplot(aes(d = target, m = pred, color = type)) +
+    geom_roc() +
+    geom_rocci()
+
+calc_auc(roc_plot)
+
+roc_plot
+
+```
+
+Calcuate F1 score
+
+```{r}
+
+calc_f1 <- function(cutoff) {
+  
+  predictions %>% 
+    mutate(
+      cutoff = cutoff,
+      label = if_else(pred > cutoff, 1, 0),
+      tp = if_else(target == 1 & label == 1, 1, 0),
+      tn = if_else(target == 0 & label == 0, 1, 0),
+      fp = if_else(target == 0 & label == 1, 1, 0),
+      fn = if_else(target == 1 & label == 0, 1, 0)
+    ) %>% 
+    group_by(cutoff, type) %>% 
+    summarise(
+      prec = sum(tp) / (sum(tp) + sum(fp)),
+      recall = sum(tp) / (sum(tp) + sum(fn))
+    ) %>% 
+    mutate(f1 = 2 * ((prec *  recall) / (prec + recall))) %>% 
+    ungroup()
+  
+}
+
+scores <- seq(0.1, 0.9, by = 0.1) %>% 
+  map_dfr(calc_f1) 
+
+scores
+
+```
+
+```{r}
+
+xgb.importance(model = fit) %>%
+  mutate(Feature = fct_reorder(Feature, Gain)) %>% 
+  ggplot(aes(Feature, Gain)) +
+    geom_col() +
+    coord_flip()
+
+```
+
+## Apply predictions to test set
+
+```{r}
+
+
+test_matrix <- create_matrix(test)
+
+test_pred <- tibble(
+  key = test$key,
+  pred = predict(fit, test_matrix)
+) 
+
+write_csv(test_pred, here::here("output/test_predictions.csv"))
 
 ```
 
