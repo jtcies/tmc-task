@@ -227,6 +227,8 @@ linear_mod %>%
       title = "Coefficient plot for logisitc regression of policy support"
     )
 
+ggsave(here::here("output/coef_plot.png"))
+
 ```
 
 Unsuprisingly, the strongest signals seems to be party and ideology. Gender too has a statistically significant effect.
@@ -472,6 +474,8 @@ Somewhat suprisingly, scores on the holdout are slightly better than the trainin
 
 xgb.importance(model = fit) %>%
   xgb.ggplot.importance()
+
+ggsave(here::here("output/variable_importance_plot.png"))
   
 ```
 

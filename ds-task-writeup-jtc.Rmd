@@ -1,0 +1,40 @@
+```{r}
+
+library(tidyverse)
+
+test_data <- read_csv(here::here("data/test_data.csv"))
+train_pred <- read_csv(here::here("output/train_predictions.csv"))
+test_pred <- read_csv(here::here("output/test_predictions.csv"))
+
+```
+## Background
+
+Voters in a particular jurisdiction are being asked to consider a ballot measure that would restrict women's access to healthcare. I was asked to use survey data to predict respondents
+
+
+## Turnout recommendations
+
+It's possible that organizers will want to target a greater scope than indviduals for whom survey data is available. Because party is was the most influential predictor in determining opposition to the policy, I would recommend focusing on registered Democrats. The table below shows percent of registered Democrats who oppose the policy, broken down by race, education, and employment, indicators which may be available without the survey data. In these cases, white and Latino men, particularly college-educated white men, were the least likely to oppose the policy, but the policy receives relatively high levels of opposition among all women and men  of color.
+
+```{r}
+
+test_data %>%
+    filter(!is.na(target), party == "Dem") %>%
+    group_by(gender, race_4, edu, employ) %>%
+    count(target) %>%
+    filter(!is.na(race_4), !is.na(employ), !is.na(employ)) %>%
+    mutate(pct = scales::percent(n / sum(n)),
+           label = paste0(pct, " (", n, ")")) %>%
+    ungroup() %>%
+    mutate(
+           employ = case_when(
+                employ == 1 ~ "employed",
+                employ == 0 ~ "unemployed"
+                )
+           ) %>%
+    filter(target == 0) %>%
+    select(-target, -n, -pct) %>% 
+    spread(race_4, label, fill = "0%") %>%
+    knitr::kable()
+```
+
