@@ -194,6 +194,19 @@ train %>%
 
 Interestingly, it looks like, across ideological lines, those who support the policy are more likley to be activist than those opposed to it. Perhaps the policy is controversial and those who support it think of themselves as activists or change agents?
 
+How does age compare to ideology and policy support?
+
+```{r}
+
+train %>% 
+  ggplot(aes(age, fill = party)) +
+    geom_histogram(binwidth = 5) +
+    facet_grid(target ~ ideo)
+
+```
+
+May be some older Democratic progressives who support the policy. Perhaps create a variable to help identify these folks. 
+
 Let's see if some modeling can help us parse out any other signals? 
 
 ```{r}
@@ -245,7 +258,8 @@ fill_missing <- function(data) {
         replace_na(list(race_4 = "White", employ = 0, edu = "college")) %>%
         mutate(
             party = fct_explicit_na(party),
-            prog_activist = if_else(activist_pct > 0.5 & ideo == 1, 1, 0)
+            prog_activist = if_else(activist_pct > 0.5 & ideo == 1, 1, 0),
+            older_prog = if_else(age > 50 & ideo %in% c(0, 1), 1, 0)
        ) 
 
 }
@@ -297,11 +311,11 @@ search_params <- function(ntimes) {
     params <- list(
       objective = "binary:logistic",
       eval_metric = "auc",
-      max_depth = sample(3:15, 1),
-      eta = sample(seq(0.01, 0.3, by = 0.01), 1),
+      max_depth = sample(3:12, 1),
+      eta = sample(seq(0.01, 0.25, by = 0.01), 1),
       min_child_weight = sample(1:20, 1),
       subsample = sample(seq(0.5, 0.8, by = 0.1), 1),
-      colsample_bytree = sample(seq(0.5, 0.9, by = 0.1), 1)
+      colsample_bytree = sample(seq(0.6, 0.9, by = 0.1), 1)
     )
     
     xgb_cv <- xgb.cv(
@@ -354,8 +368,7 @@ plot_params <- function(col) {
   col <- rlang::sym(col)
   
   ggplot(best_iter, aes(!! col, test_auc_mean)) +
-    geom_point() +
-    geom_smooth()
+    geom_jitter() 
   
 }
 
@@ -460,17 +473,18 @@ calc_f1 <- function(cutoff) {
   
 }
 
-scores <- seq(0.1, 0.9, by = 0.1) %>% 
+scores <- seq(0.1, 0.9, by = 0.05) %>% 
   map_dfr(calc_f1) 
 
 scores %>% 
-  arrange(type)
+  arrange(type) %>% 
+  as.data.frame()
 
 ```
 
-Somewhat suprisingly, scores on the holdout are slightly better than the training set. However, training set used cross-validation to determine model parameters and holdout is a pretty small sample, so this is probably ok. 
+Performance on the holdout set is a little lower than I would like, but it's a small data set, so there's probably a lot of noise in there. 
 
-0.5 is the best cutoff score for all metrics. 
+F1 score is slightly higher at 
 
 ```{r}
 
