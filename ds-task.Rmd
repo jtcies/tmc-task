@@ -422,6 +422,8 @@ calc_auc(roc_plot)
 
 roc_plot
 
+ggave(here::here("output/roc_plot.png"))
+
 ```
 
 ```{r}
