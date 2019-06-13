@@ -1,6 +1,8 @@
 ---
 title: "Voter turnout model and recommendations"
-output: html_document
+output: 
+  html_document:
+    css: www/style.css   
 ---
 
 
@@ -18,18 +20,27 @@ test_data <- read_csv(here::here("data/test_data.csv"))
 train_pred <- read_csv(here::here("output/train_predictions.csv"))
 
 ```
+```{r, include=FALSE,eval=FALSE}
+
+rmarkdown::render(here::here("ds-task-writeup-jtc.Rmd"))
+
+```
+
+All code and data for this project can be found [here](https://github.com/jtcies/tmc-task).
 
 ## Background
 
-Voters in a particular jurisdiction are being asked to consider a ballot measure that would restrict women's access to healthcare. I was asked to use survey data to predict respondents
+Voters in a particular jurisdiction are being asked to consider a ballot measure that would restrict women's access to healthcare. I was asked to use survey data to predict which respondents oppose the policy; these predictions will be used in voter turnout efforts.
 
 Among survey respondents, `r scales::percent(mean(test_data$target, na.rm = TRUE))` support the policy.
 
-The chart below shows an output of a logistic regression estimating support for the measure. By far, party is the largest predictor of support or opposition; party along with gender and conservative ideology are the only statistically significant factors.
+The chart below shows the coefficients of a logistic regression estimating support for the measure. This is a simple model not used to generate the final predictions but which can be helpful in understanding the influence of various factors on voters' stances. Points on either extreme of the chart indicate that the predicitor has a greater influence on support or opposition to the policy. Points close to zero indicate the predictor has relatively little influence on opposition.
+
+By far, party is the largest predictor of support or opposition; party along with gender and conservative ideology are the only statistically significant factors.
 
 <img src = "output/coef_plot.png" width=768 height=474 align="middle">
 
-## Model performance
+## Turnout recommendations
 
 ```{r}
 calc_f1 <- function(cutoff) {
@@ -37,45 +48,66 @@ calc_f1 <- function(cutoff) {
   train_pred %>% 
     mutate(
       cutoff = cutoff,
-      label = if_else(pred > cutoff, 1, 0),
+      label = if_else(pred >= cutoff, 1, 0),
       tp = if_else(target == 1 & label == 1, 1, 0),
       tn = if_else(target == 0 & label == 0, 1, 0),
       fp = if_else(target == 0 & label == 1, 1, 0),
       fn = if_else(target == 1 & label == 0, 1, 0)
     ) %>% 
-    group_by(cutoff) %>% 
+    group_by(cutoff, type) %>% 
     summarise(
+      total = n(),
+      tpr = sum(tp) / sum(target == 1),
+      fpr = sum(fp) / sum(target == 0),
+      fnr = sum(fn) / sum(target == 1),
+      tnr = sum(tn) / sum(target == 0),
       prec = sum(tp) / (sum(tp) + sum(fp)),
       recall = sum(tp) / (sum(tp) + sum(fn))
     ) %>% 
     mutate(f1 = 2 * ((prec *  recall) / (prec + recall))) %>% 
     ungroup()
-  
 }
 
 cutoffs <- seq(0, 1, by = 0.02) %>% 
     map_dfr(calc_f1) 
 
-max_f1 <- cutoffs %>% 
-    filter(f1 == max(f1)) %>% 
-    pull(cutoff)
-
-cutoffs %>% 
-    ggplot(aes(cutoff, f1)) +
-        geom_line() +
-        geom_vline(xintercept = max_f1, linetype = 3) +
-        geom_text(aes(x = 0.125, y = 0.45, label = paste0('ideal cutoff: ', max_f1)))
 ```
-
-
-
-## Turnout recommendations
 
 ### Establishing a cutoff
 
+The final predictions submitted along with this memo are probabilities that voters will support the ballot initiative. These predictions were generated from a tree-based model. Using these predictions to identify voters who oppose the initiative requires setting a cutoff probability - anyone who falls below that probability are voters who should be targeted for turnout efforts. Establishing the right cutoff requires some judgement and knowledge of on-the-ground conditions - too high and you miss people who oppose, too low and you'll encourage turnout among supporters of the ballot initiative. F1 score provides a good balance of these two choices.
+
+The chart below shows how F1 changes with the cutoff on both the training data that was used to create the model and a validation dataset used to assess the quality of the predictions.
+
+```{r}
+
+max_f1 <- cutoffs %>%
+    filter(type == "holdout") %>%
+    filter(f1 == max(f1)) %>%
+    slice(1)
+
+f1_label <- paste0(
+    'ideal cutoff: ', max_f1$cutoff, " (F1: ", round(max_f1$f1, 3), ")"
+)
+
+cutoffs %>% 
+    mutate(type = fct_relevel(type, "train")) %>%
+    ggplot(aes(cutoff, f1, color = type)) +
+        geom_line(size = 2) +
+        geom_vline(xintercept = max_f1$cutoff, linetype = 3) +
+        scale_color_discrete(labels = c("training", "validation")) +
+        geom_text(aes(x = 0.125, y = 0.45, label = f1_label), inherit.aes = FALSE) + 
+        labs(title = "Probability cutoff and F1 score",
+             color = "dataset")
+```
+
+A cutoff `r max_f1$cutoff` generates the highest F1 score on the holdout data. However, based on the survey data, the ballot initiative may have more support than opposition in the jurisdiction. This may require setting a higher cutoff score to reach a greater number of people.
+
+Using the cutoff of `r max_f1$cutoff`, `r scales::percent(max_f1$fnr)` of voters in the holdout data who supported the initiative were incorrectly identified as opposing while `r scales::percent(max_f1$tnr)` of those that actually opposed the measure were correctly identified. 
+
 ### Non-survey indicators for greater reach
 
-It's possible that organizers will want to target a larger group of indviduals than just those for whom survey data is available. Because party is was the most influential predictor in determining opposition to the policy, I would recommend focusing on registered Democrats. The table below shows percent of registered Democrats who oppose the policy, broken down by race, education, and employment, indicators which may be available without the survey data. In these cases, white and Latino men, particularly college-educated white men, were the least likely to oppose the policy, but the policy receives relatively high levels of opposition among all women and men  of color.
+It's possible that organizers will want to target a larger group of indviduals than just those for whom survey data is available. Because party is was the most influential predictor in determining opposition to the policy, I would recommend focusing on registered Democrats. The table below shows percent of registered Democrats who oppose the policy, broken down by race, education, and employment, indicators which may be available without the survey data. In these cases, white and Latino men, particularly college-educated white men, were the least likely to oppose the policy, but the policy receives relatively high levels of opposition among most women, and Black men.
 
 ```{r}
 
@@ -85,7 +117,7 @@ test_data %>%
     count(target) %>%
     filter(!is.na(race_4), !is.na(employ), !is.na(employ)) %>%
     mutate(pct = scales::percent(n / sum(n)),
-           label = paste0(pct, " (", n, ")")) %>%
+           label = paste0(pct, " (", sum(n), ")")) %>%
     ungroup() %>%
     mutate(
         employ = case_when(
@@ -101,10 +133,9 @@ test_data %>%
     knitr::kable(caption = "Policy opposition by gender, educational attainment, employment, and race among Democrats")
 ```
 
-Additionally, there appears to be a group of older, progressive Democrates who support the policy as shown in the chart below. It may be worthwhile to also consider age in any other turnout efforts. 
+Additionally, there appears to be a group of older, progressive Democrats who support the policy as shown in the chart below. It may be helpful to focus on younger voters who are more likley to oppose the ballot measure.
 
 ```{r}
-
 
 test_data %>% 
     filter(!is.na(target)) %>% 

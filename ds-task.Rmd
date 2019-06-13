@@ -38,7 +38,7 @@ test_data <- test_data %>%
 
 ```
 
-About a 50/50 split between our two groups. I don't think we'll have to worry about class imbalance. I'll split up the data between a training, holdout, and test date. 
+About a 50/50 split between our two groups. I don't think we'll have to worry about class imbalance. I'll split up the data between a training, holdout, and test data.
 
 ```{r}
 test <- test_data %>%
@@ -71,7 +71,7 @@ train %>%
 
 ```
 
-Mostly boomers. My guess is that this data is of likley voters rather than whole population since it is so skewed towards individuals above 50. Older voters are slightly more likley to support the policy.
+Mostly boomers. Older voters are slightly more likley to support the policy.
 
 ```{r}
 
@@ -166,7 +166,7 @@ num_vars %>%
 
 ```
 
-Likelihood of being involed in activism looks like a uniform distribution. Age as we saw was skewed toward older folks, and income is a percentile that has already been normalized within our sample. I wonder how the 'activism' question was asked given that it's a percent.
+Likelihood of being involed in activism looks like a uniform distribution. Age as we saw was skewed toward older folks, and income is a percentile that has already been normalized within our sample. I wonder how the 'activism' question was asked given that it's a percent?
 
 Let's see how they relate to target?
 
@@ -179,7 +179,7 @@ num_vars %>%
 
 ```
 
-It looks like older respondents are more likely to support the policy. Those who are wealthier are also more likely to support the policy, but this only shows up at the extreme ends of the distribution. Activist percent doesn't have a connection with policy support. I wonder if some feature engineering would help out with this? 
+It looks like older respondents are more likely to support the policy. Those who are wealthier are also more likely to support the policy, but this only shows up at the extreme ends of the distribution. Activist percent doesn't have a connection with policy support.
 
 Let's see how current values relate to policy support? 
 
@@ -288,10 +288,8 @@ create_matrix <- function(data) {
 
 }
 
-
 train_matrix <- create_matrix(train)
 holdout_matrix <- create_matrix(holdout)
-
 
 ```
 
