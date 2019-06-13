@@ -1,5 +1,6 @@
 ---
 title: "Voter turnout model and recommendations"
+author: "Joe Ciesielski"
 output: 
   html_document:
     css: www/style.css   
@@ -16,7 +17,14 @@ library(lubridate)
 
 theme_set(theme_minimal())
 
-test_data <- read_csv(here::here("data/test_data.csv"))
+test_data <- read_csv(here::here("data/test_data.csv")) %>%
+    mutate(
+        target = case_when(
+            target == 0 ~ 1L,
+            target == 1 ~ 0L,
+            TRUE ~ as.integer(target)
+            )
+        )
 train_pred <- read_csv(here::here("output/train_predictions.csv"))
 
 ```
@@ -32,9 +40,9 @@ All code and data for this project can be found [here](https://github.com/jtcies
 
 Voters in a particular jurisdiction are being asked to consider a ballot measure that would restrict women's access to healthcare. I was asked to use survey data to predict which respondents oppose the policy; these predictions will be used in voter turnout efforts.
 
-Among survey respondents, `r scales::percent(mean(test_data$target, na.rm = TRUE))` support the policy.
+Among survey respondents, `r scales::percent(mean(test_data$target, na.rm = TRUE))` oppose the policy.
 
-The chart below shows the coefficients of a logistic regression estimating support for the measure. This is a simple model not used to generate the final predictions but which can be helpful in understanding the influence of various factors on voters' stances. Points on either extreme of the chart indicate that the predictor has a greater influence on support or opposition to the policy. Points close to zero indicate the predictor has relatively little influence on opposition.
+The chart below shows the coefficients of a logistic regression estimating opposition to the measure. This is a simple model not used to generate the final predictions but which can be helpful in understanding the influence of various factors on voters' stances. Points on either extreme of the chart indicate that the predictor has a greater influence on support or opposition to the policy. Points close to zero indicate the predictor has relatively little influence on opposition.
 
 By far, party is the largest predictor of support or opposition; party along with gender and conservative ideology are the only statistically significant factors.
 
@@ -83,7 +91,7 @@ The chart below shows how F1 changes with the cutoff on both the training data t
 
 max_f1 <- cutoffs %>%
     filter(type == "holdout") %>%
-    filter(f1 == max(f1)) %>%
+    filter(f1 == max(f1, na.rm = TRUE)) %>%
     slice(1)
 
 f1_label <- paste0(
@@ -127,7 +135,7 @@ test_data %>%
         race_4 = fct_relevel(race_4, c("White", "Latinx", "Black")),
     ) %>%
     unite(` `, gender, edu, employ, sep = ", ") %>% 
-    filter(target == 0) %>%
+    filter(target == 1) %>%
     select(-target, -n, -pct) %>% 
     spread(race_4, label, fill = "0%") %>%
     knitr::kable(caption = "Policy opposition by gender, educational attainment, employment, and race among Democrats")
