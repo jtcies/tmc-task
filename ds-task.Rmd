@@ -26,15 +26,31 @@ test_data %>%
     count(target)
 
 ```
+
+```{r}
+
+test_data %>% 
+    count(party, target) %>%
+    spread(target, n)
+
+```
+
+It looks like based on party that 0 is oppose and 1 is support. We'll have to flip that because we're being asked to predict opposition.
+
 Some preprocessing.
 
 ```{r}
 
 test_data <- test_data %>%
-    mutate_at(vars(ideo, employ, target), as.factor) %>%
     mutate(
-      age = year(as.period(interval(ymd(paste0(birth_year, "0101")), today())))
-    )
+      age = year(as.period(interval(ymd(paste0(birth_year, "0101")), today()))),
+      target = case_when(
+        target == 0 ~ 1L,
+        target == 1 ~ 0L,
+        TRUE ~ as.integer(target)
+        )
+      ) %>%
+    mutate_at(vars(ideo, employ, target), as.factor) 
 
 ```
 
@@ -71,7 +87,7 @@ train %>%
 
 ```
 
-Mostly boomers. Older voters are slightly more likley to support the policy.
+Mostly boomers. Older voters are slightly more likely to support the policy.
 
 ```{r}
 
@@ -81,7 +97,7 @@ train %>%
 
 ```
 
-A small amount of missingness we'll have to deal with. Mostly white, college educated, but a pretty even split between Democrats and Repbulicans. I wonder if missing is true missing or if that means independent. Is there any correlation between missing variables?
+A small amount of missingness we'll have to deal with. Mostly white, college educated, but a pretty even split between Democrats and Republicans. I wonder if missing is true missing or if that means independent. Is there any correlation between missing variables?
 
 ```{r}
 
@@ -106,7 +122,7 @@ train %>%
 
 Looks like 1 is progressive, -1 is conservative. Those missing `party` are spread out evenly among ideology, which makes me think it is true missing. I would assume party based on ideology, but we have people with 0 ideology. 
 
-I initally tried imputing party from the other variables, but the model performs better when just making the missing explicit. Presumably there is information contained in the missingness.
+I initially tried imputing party from the other variables, but the model performs better when just making the missing explicit. Presumably there is information contained in the missingness.
 
 Check how the target relates to party and ideology. 
 
@@ -149,7 +165,9 @@ map_dfr(vars, var_counts) %>%
 
 ```
 
-Education and employment do not have strong connections with stance on policy. Women are less likely to support the policy even though a plurality of women do still support it. Party may be a stronger predictor than even ideology, especially among republicans. Respondenents who are Black or Latinx are less likley to support the policy. 
+It looks like based on party that 1 is policy support. We'll want to flip that since we're being asked to predict opposition.
+
+Education and employment do not have strong connections with stance on policy. Women are less likely to support the policy even though a plurality of women do still support it. Party may be a stronger predictor than even ideology, especially among republicans. Respondents who are Black or Latinx are less likely to support the policy. 
 
 Let's take a look at some of the numerical variables. First just the distributions.
 
@@ -166,7 +184,7 @@ num_vars %>%
 
 ```
 
-Likelihood of being involed in activism looks like a uniform distribution. Age as we saw was skewed toward older folks, and income is a percentile that has already been normalized within our sample. I wonder how the 'activism' question was asked given that it's a percent?
+Likelihood of being involved in activism looks like a uniform distribution. Age as we saw was skewed toward older folks, and income is a percentile that has already been normalized within our sample. I wonder how the 'activism' question was asked given that it's a percent?
 
 Let's see how they relate to target?
 
@@ -192,7 +210,7 @@ train %>%
 
 ```
 
-Interestingly, it looks like, across ideological lines, those who support the policy are more likley to be activist than those opposed to it. Perhaps the policy is controversial and those who support it think of themselves as activists or change agents?
+Interestingly, it looks like, across ideological lines, those who support the policy are more likely to be activist than those opposed to it. Perhaps the policy is controversial and those who support it think of themselves as activists or change agents?
 
 How does age compare to ideology and policy support?
 
@@ -210,7 +228,6 @@ May be some older Democratic progressives who support the policy. Perhaps create
 Let's see if some modeling can help us parse out any other signals? 
 
 ```{r}
-
 
 linear_mod <- glm(
   target ~ ., 
@@ -244,11 +261,11 @@ ggsave(here::here("output/coef_plot.png"))
 
 ```
 
-Unsuprisingly, the strongest signals seems to be party and ideology. Gender too has a statistically significant effect.
+Unsurprisingly, the strongest signals seems to be party and ideology. Gender too has a statistically significant effect.
 
 This also tells me that conservatives feel more strongly about this policy than progressives do. Conservative ideology has a much stronger effect on policy support than progressive ideology does on policy opposition.
 
-Fill in the missing variables. 
+Fill in the missing variables and flip our labels.
 
 ```{r}
 
@@ -259,7 +276,7 @@ fill_missing <- function(data) {
         mutate(
             party = fct_explicit_na(party),
             prog_activist = if_else(activist_pct > 0.5 & ideo == 1, 1, 0),
-            older_prog = if_else(age > 50 & ideo %in% c(0, 1), 1, 0)
+            older_prog = if_else(age > 50 & ideo %in% c(0, 1), 1, 0),
        ) 
 
 }
@@ -344,7 +361,7 @@ search_params <- function(ntimes) {
   
 }
 
-param_results <- search_params(200) %>% 
+param_results <- search_params(100) %>% 
   mutate(round = cumsum(iter == 1))
 
 # find the best iteration from each round
@@ -481,8 +498,6 @@ scores %>%
 ```
 
 Performance on the holdout set is a little lower than I would like, but it's a small data set, so there's probably a lot of noise in there. 
-
-F1 score is slightly higher at 
 
 ```{r}
 

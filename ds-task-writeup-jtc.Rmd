@@ -34,7 +34,7 @@ Voters in a particular jurisdiction are being asked to consider a ballot measure
 
 Among survey respondents, `r scales::percent(mean(test_data$target, na.rm = TRUE))` support the policy.
 
-The chart below shows the coefficients of a logistic regression estimating support for the measure. This is a simple model not used to generate the final predictions but which can be helpful in understanding the influence of various factors on voters' stances. Points on either extreme of the chart indicate that the predicitor has a greater influence on support or opposition to the policy. Points close to zero indicate the predictor has relatively little influence on opposition.
+The chart below shows the coefficients of a logistic regression estimating support for the measure. This is a simple model not used to generate the final predictions but which can be helpful in understanding the influence of various factors on voters' stances. Points on either extreme of the chart indicate that the predictor has a greater influence on support or opposition to the policy. Points close to zero indicate the predictor has relatively little influence on opposition.
 
 By far, party is the largest predictor of support or opposition; party along with gender and conservative ideology are the only statistically significant factors.
 
@@ -75,7 +75,7 @@ cutoffs <- seq(0, 1, by = 0.02) %>%
 
 ### Establishing a cutoff
 
-The final predictions submitted along with this memo are probabilities that voters will support the ballot initiative. These predictions were generated from a tree-based model. Using these predictions to identify voters who oppose the initiative requires setting a cutoff probability - anyone who falls below that probability are voters who should be targeted for turnout efforts. Establishing the right cutoff requires some judgement and knowledge of on-the-ground conditions - too high and you miss people who oppose, too low and you'll encourage turnout among supporters of the ballot initiative. F1 score provides a good balance of these two choices.
+The final predictions submitted along with this memo are probabilities that voters will support the ballot initiative. These predictions were generated from a tree-based model. Using these predictions to identify voters who oppose the initiative requires setting a cutoff probability - anyone who falls above that probability are voters who should be targeted for turnout efforts. Establishing the right cutoff requires some judgement and knowledge of on-the-ground conditions - too high and you miss people who oppose, too low and you'll encourage turnout among supporters of the ballot initiative. F1 score provides a good balance of these two choices.
 
 The chart below shows how F1 changes with the cutoff on both the training data that was used to create the model and a validation dataset used to assess the quality of the predictions.
 
@@ -101,13 +101,13 @@ cutoffs %>%
              color = "dataset")
 ```
 
-A cutoff `r max_f1$cutoff` generates the highest F1 score on the holdout data. However, based on the survey data, the ballot initiative may have more support than opposition in the jurisdiction. This may require setting a higher cutoff score to reach a greater number of people.
+A cutoff `r max_f1$cutoff` generates the highest F1 score on the validation data. However, based on the survey data, the ballot initiative may have more support than opposition in the jurisdiction. This may require setting a lower cutoff score to reach a greater number of people.
 
-Using the cutoff of `r max_f1$cutoff`, `r scales::percent(max_f1$fnr)` of voters in the holdout data who supported the initiative were incorrectly identified as opposing while `r scales::percent(max_f1$tnr)` of those that actually opposed the measure were correctly identified. 
+Using the cutoff of `r max_f1$cutoff`, `r scales::percent(max_f1$fpr)` of voters in the validation data who supported the initiative were incorrectly identified as opposing while `r scales::percent(max_f1$tpr)` of those that actually opposed the measure were correctly identified. 
 
 ### Non-survey indicators for greater reach
 
-It's possible that organizers will want to target a larger group of indviduals than just those for whom survey data is available. Because party is was the most influential predictor in determining opposition to the policy, I would recommend focusing on registered Democrats. The table below shows percent of registered Democrats who oppose the policy, broken down by race, education, and employment, indicators which may be available without the survey data. In these cases, white and Latino men, particularly college-educated white men, were the least likely to oppose the policy, but the policy receives relatively high levels of opposition among most women, and Black men.
+It's possible that organizers will want to target a larger group of individuals than just those for whom survey data is available. Because party is was the most influential predictor in determining opposition to the policy, I would recommend focusing on registered Democrats. The table below shows percent of registered Democrats who oppose the policy, broken down by race, education, and employment, indicators which may be available without the survey data. In these cases, white and Latino men, particularly college-educated white men, were the least likely to oppose the policy, but the policy receives relatively high levels of opposition among most women, and Black men.
 
 ```{r}
 
@@ -133,7 +133,7 @@ test_data %>%
     knitr::kable(caption = "Policy opposition by gender, educational attainment, employment, and race among Democrats")
 ```
 
-Additionally, there appears to be a group of older, progressive Democrats who support the policy as shown in the chart below. It may be helpful to focus on younger voters who are more likley to oppose the ballot measure.
+Additionally, there appears to be a group of older, progressive Democrats who support the policy as shown in the chart below. It may be helpful to focus on younger voters who are more likely to oppose the ballot measure.
 
 ```{r}
 
@@ -148,8 +148,8 @@ test_data %>%
             ideo == -1 ~ "conservative"
         ),
         target = case_when(
-            target == 1 ~ "support",
-            target == 0 ~ "oppose"
+            target == 0 ~ "support",
+            target == 1 ~ "oppose"
         )
     ) %>% 
     ggplot(aes(age, fill = party)) +
